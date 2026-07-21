@@ -1,0 +1,2613 @@
+<title>Schedule A</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+  .app {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1: #2a78d6; --series-2: #008300; --series-3: #e87ba4; --series-4: #eda100;
+    --series-5: #1baf7a; --series-6: #eb6834; --series-7: #4a3aa7; --series-8: #e34948;
+    --today-marker: var(--series-1);
+    --row-h: 46px;
+    --track-h: 54px;
+    --group-track-h: 40px;
+    --bar-h: 26px;
+    --bar-top: 10px;
+    --group-bar-h: 20px;
+    --group-bar-top: 9px;
+  }
+  .app[data-view-mode="resource"] { --today-marker: var(--series-8); }
+  .app[data-density="narrow"] {
+    --row-h: 32px;
+    --track-h: 34px;
+    --group-track-h: 26px;
+    --bar-h: 18px;
+    --bar-top: 8px;
+    --group-bar-h: 12px;
+    --group-bar-top: 7px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .app {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-1: #3987e5; --series-2: #008300; --series-3: #d55181; --series-4: #c98500;
+      --series-5: #199e70; --series-6: #d95926; --series-7: #9085e9; --series-8: #e66767;
+    }
+  }
+  :root[data-theme="dark"] .app {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1: #3987e5; --series-2: #008300; --series-3: #d55181; --series-4: #c98500;
+    --series-5: #199e70; --series-6: #d95926; --series-7: #9085e9; --series-8: #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .app {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .header h1 { font-size: 20px; margin: 0 0 4px; }
+  .header p { margin: 0 0 18px; color: var(--text-secondary); font-size: 13px; }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; color: var(--text-secondary); }
+  .field input {
+    font: inherit;
+    font-size: 13px;
+    padding: 7px 9px;
+    border: 1px solid var(--baseline);
+    border-radius: 6px;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    width: 100%;
+  }
+  .field.alloc input { width: 90px; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px 20px; width: 320px; max-width: 100%;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.24);
+  }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .modal-title { font-size: 14px; font-weight: 700; }
+  .add-form {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+  .add-form button[type="submit"] {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    background: var(--series-1);
+    color: #fff;
+    cursor: pointer;
+  }
+  .add-form button[type="submit"]:hover { filter: brightness(1.08); }
+
+  .roles-modal { width: 380px; }
+  .roles-new-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .roles-new-row input {
+    flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 7px 9px;
+    border: 1px solid var(--baseline); border-radius: 6px;
+    background: var(--page-plane); color: var(--text-primary);
+  }
+  .roles-resource-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 320px; overflow-y: auto;
+  }
+  .roles-resource-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .roles-resource-name {
+    font-size: 13px; font-weight: 600; flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .role-select {
+    font: inherit; font-size: 12px; padding: 5px 7px; flex: none; max-width: 160px;
+    border: 1px solid var(--baseline); border-radius: 6px;
+    background: var(--surface-1); color: var(--text-primary);
+  }
+
+  .cleanup-modal { width: 420px; }
+  .cleanup-warning {
+    font-size: 12px; font-weight: 600; color: var(--series-8);
+    background: color-mix(in srgb, var(--series-8) 12%, var(--surface-1));
+    border: 1px solid var(--series-8); border-radius: 6px;
+    padding: 8px 10px; margin-bottom: 14px;
+  }
+  .cleanup-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 320px; overflow-y: auto; margin-bottom: 4px;
+  }
+  .cleanup-row {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    font-size: 12px; padding: 6px 8px; border-radius: 6px; background: var(--page-plane);
+  }
+  .cleanup-row-main { min-width: 0; }
+  .cleanup-row-project { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cleanup-row-resource { color: var(--text-secondary); margin-top: 1px; }
+  .cleanup-row-date { flex: none; color: var(--text-muted); }
+  #cleanupOkBtn {
+    font: inherit; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 6px;
+    border: none; background: var(--series-1); color: #fff; cursor: pointer;
+  }
+  #cleanupOkBtn:hover { filter: brightness(1.08); }
+  #cleanupOkBtn:disabled { opacity: 0.5; cursor: default; filter: none; }
+
+  .add-entry-btn {
+    flex: none; width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--baseline); border-radius: 5px;
+    background: var(--surface-1); color: var(--text-secondary);
+    font-size: 14px; font-weight: 700; line-height: 1; cursor: pointer; padding: 0;
+  }
+  .add-entry-btn:hover { background: var(--page-plane); color: var(--series-1); border-color: var(--series-1); }
+
+  .toolbar { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; margin: 0 0 14px; }
+  .toolbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; margin-left: auto; }
+  .start-date-field { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+  .start-date-field input[type="date"] {
+    font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 6px;
+    border: 1px solid var(--baseline); background: var(--surface-1); color: var(--text-primary);
+  }
+  .ghost-btn {
+    font: inherit; font-size: 12px; padding: 6px 12px; border-radius: 6px;
+    border: 1px solid var(--baseline); background: var(--surface-1); color: var(--text-primary);
+    cursor: pointer;
+  }
+  .ghost-btn:hover { background: var(--page-plane); }
+  .ghost-btn:disabled { opacity: 0.5; cursor: default; }
+  .ghost-btn:disabled:hover { background: var(--surface-1); }
+
+  .zoom-control {
+    display: inline-flex; align-items: stretch; border: 1px solid var(--baseline);
+    border-radius: 6px; overflow: hidden;
+  }
+  .zoom-control button {
+    font: inherit; font-size: 14px; font-weight: 600; line-height: 1; padding: 6px 12px;
+    border: none; background: var(--surface-1); color: var(--text-primary); cursor: pointer;
+  }
+  .zoom-control button:hover { background: var(--page-plane); }
+  .zoom-control button:disabled { opacity: 0.5; cursor: default; }
+  .zoom-control button:disabled:hover { background: var(--surface-1); }
+  .zoom-level {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 42px;
+    font: inherit; font-size: 12px; padding: 6px 8px; color: var(--text-secondary);
+    background: var(--surface-1); border-left: 1px solid var(--baseline); border-right: 1px solid var(--baseline);
+    user-select: none;
+  }
+  .ghost-btn.danger:hover { color: var(--series-8); border-color: var(--series-8); }
+  .ghost-btn.warn { color: var(--series-4); border-color: var(--series-4); }
+  .ghost-btn.warn:hover { background: color-mix(in srgb, var(--series-4) 12%, var(--surface-1)); }
+
+  .view-toggle {
+    display: inline-flex; border: 1px solid var(--baseline); border-radius: 6px; overflow: hidden;
+  }
+  .view-toggle-btn {
+    font: inherit; font-size: 12px; font-weight: 600; padding: 6px 14px;
+    border: none; background: var(--surface-1); color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .view-toggle-btn + .view-toggle-btn { border-left: 1px solid var(--baseline); }
+  .view-toggle-btn:hover { background: var(--page-plane); }
+  .view-toggle-btn.active { background: var(--series-1); color: #fff; }
+  .view-toggle-btn.active:hover { filter: brightness(1.05); }
+  .view-toggle-btn[data-view="resource"].active,
+  .view-toggle-btn[data-panel-view="resource"].active { background: var(--series-8); }
+  .save-status { margin-left: auto; font-size: 11px; color: var(--text-muted); transition: color .2s; }
+  .save-status.flash { color: var(--series-2); font-weight: 600; }
+
+  .layout { display: flex; align-items: flex-start; gap: 20px; }
+  .main-col { flex: 1; min-width: 0; }
+
+  .side-panel {
+    width: 280px; flex: none;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; position: sticky; top: 24px;
+    display: none;
+  }
+  .side-panel.open { display: block; }
+  .panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .panel-date-label { font-size: 11px; color: var(--text-muted); }
+  .panel-date { font-size: 15px; font-weight: 700; margin-top: 2px; }
+  .panel-close {
+    border: none; background: transparent; color: var(--text-muted);
+    font-size: 14px; cursor: pointer; border-radius: 4px; padding: 2px 6px; line-height: 1;
+  }
+  .panel-close:hover { color: var(--series-8); background: var(--page-plane); }
+  #panelViewToggle { margin-top: 12px; }
+  .panel-filter { margin-top: 12px; }
+  .panel-filter-header { display: flex; align-items: center; gap: 2px; margin-bottom: 6px; }
+  .panel-filter-label { font-size: 11px; color: var(--text-muted); }
+  .panel-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .filter-chip {
+    font: inherit; font-size: 11px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--baseline); background: var(--page-plane); color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .filter-chip:hover { background: color-mix(in srgb, var(--series-1) 10%, var(--page-plane)); }
+  .filter-chip.active {
+    background: color-mix(in srgb, var(--series-1) 18%, var(--surface-1));
+    border-color: var(--series-1); color: var(--series-1); font-weight: 600;
+  }
+  .panel-filter-chips.filter-chips-red .filter-chip:hover { background: color-mix(in srgb, var(--series-8) 10%, var(--page-plane)); }
+  .panel-filter-chips.filter-chips-red .filter-chip.active {
+    background: color-mix(in srgb, var(--series-8) 18%, var(--surface-1));
+    border-color: var(--series-8); color: var(--series-8);
+  }
+  .panel-summary {
+    font-size: 12px; color: var(--text-secondary); margin: 10px 0 14px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--gridline);
+  }
+  .panel-list { display: flex; flex-direction: column; gap: 12px; }
+  .panel-row { display: flex; align-items: center; gap: 8px; }
+  .panel-row-main { flex: 1; min-width: 0; }
+  .panel-row-name {
+    font-size: 13px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .panel-row-project { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .panel-row-range { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .panel-row-alloc { font-size: 13px; font-weight: 700; flex: none; }
+  .panel-row-alloc.over-allocated { color: var(--series-8); }
+
+  .editable-area { position: relative; }
+  .editable-area.locked .gantt-card { pointer-events: none; opacity: 0.35; filter: saturate(0.3); }
+  .lock-overlay {
+    position: absolute; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .lock-overlay-inner {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 24px; max-width: 420px; text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+  }
+  .lock-overlay-inner p { margin: 0 0 14px; font-size: 13px; color: var(--text-secondary); }
+  .lock-overlay-actions { display: flex; gap: 10px; justify-content: center; }
+
+  .filters-block { margin-bottom: 12px; }
+  .filters-block-header { display: flex; align-items: center; gap: 2px; }
+  .resource-filter { margin-bottom: 6px; }
+  .resource-filter:last-child { margin-bottom: 0; }
+  .resource-filter-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+  .filters-block-header .resource-filter-label { margin-bottom: 0; }
+  .filters-block-body { margin-top: 6px; }
+  .resource-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  #resourceFilterChips .filter-chip:hover { background: color-mix(in srgb, var(--series-8) 10%, var(--page-plane)); }
+  #resourceFilterChips .filter-chip.active {
+    background: color-mix(in srgb, var(--series-8) 18%, var(--surface-1));
+    border-color: var(--series-8); color: var(--series-8);
+  }
+  #rolesFilterChips .filter-chip:hover { background: color-mix(in srgb, var(--series-2) 10%, var(--page-plane)); }
+  #rolesFilterChips .filter-chip.active {
+    background: color-mix(in srgb, var(--series-2) 18%, var(--surface-1));
+    border-color: var(--series-2); color: var(--series-2);
+  }
+  #panelRolesFilterChips .filter-chip:hover { background: color-mix(in srgb, var(--series-2) 10%, var(--page-plane)); }
+  #panelRolesFilterChips .filter-chip.active {
+    background: color-mix(in srgb, var(--series-2) 18%, var(--surface-1));
+    border-color: var(--series-2); color: var(--series-2);
+  }
+
+  .gantt-card {
+    position: relative;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .gantt-scroll { overflow-x: auto; }
+  .gantt-grid { display: grid; }
+
+  .col-resize-handle {
+    position: absolute; top: 0; bottom: 0; width: 7px; margin-left: -4px;
+    cursor: col-resize; z-index: 6; background: transparent;
+  }
+  .col-resize-handle::after {
+    content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 1px;
+    background: transparent;
+  }
+  .col-resize-handle:hover::after, .col-resize-handle.dragging::after { background: var(--series-1); }
+  .col-resize-handle:hover, .col-resize-handle.dragging { background: color-mix(in srgb, var(--series-1) 12%, transparent); }
+
+  .cell { }
+  .label-cell {
+    position: sticky; left: 0; z-index: 3;
+    background: var(--surface-1);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--gridline);
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 10px;
+    min-height: var(--row-h);
+  }
+  .label-cell.header-cell { min-height: 30px; }
+  .label-cell.month-label { min-height: 24px; }
+  .label-cell.timeline-label {
+    background: color-mix(in srgb, var(--today-marker) 18%, var(--surface-1));
+    color: var(--today-marker);
+    font-weight: 700;
+  }
+
+  .month-cell {
+    font-size: 11px; color: var(--text-secondary); font-weight: 600;
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--gridline);
+    border-left: 1px solid var(--gridline);
+    background: var(--surface-1);
+    display: flex; align-items: center;
+  }
+  .week-cell {
+    display: flex; align-items: center; justify-content: flex-start;
+    padding: 4px 6px;
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+    border-bottom: 1px solid var(--baseline);
+    border-left: 1px solid var(--gridline);
+    background: var(--surface-1);
+    cursor: pointer;
+    text-align: left;
+  }
+  .week-cell:hover { background: color-mix(in srgb, var(--series-1) 10%, var(--surface-1)); }
+  .week-cell.today {
+    background: color-mix(in srgb, var(--today-marker) 14%, var(--surface-1)); color: var(--today-marker);
+  }
+  .week-cell.selected {
+    background: color-mix(in srgb, var(--series-1) 20%, var(--surface-1));
+    box-shadow: inset 0 0 0 1px var(--series-1);
+  }
+
+  .track-cell {
+    position: relative;
+    border-bottom: 1px solid var(--gridline);
+    min-height: var(--track-h);
+  }
+  .row-even .track-cell, .row-even .label-cell.resource-label { background: color-mix(in srgb, var(--page-plane) 55%, var(--surface-1)); }
+
+  .project-label-input {
+    font: inherit; font-weight: 600; font-size: 13px;
+    border: 1px solid transparent; background: transparent;
+    border-radius: 4px; padding: 4px 6px; flex: 1; min-width: 0;
+  }
+  .project-label-input:hover, .project-label-input:focus { border-color: var(--baseline); background: var(--page-plane); }
+  .collapse-toggle {
+    flex: none; width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent; color: var(--text-secondary);
+    font-size: 16px; line-height: 1; cursor: pointer; border-radius: 4px;
+    transition: transform .15s;
+  }
+  .collapse-toggle:hover { background: var(--page-plane); }
+  .collapse-toggle.collapsed { transform: rotate(-90deg); }
+  .collapse-count {
+    flex: none; font-size: 11px; font-weight: 600; color: var(--text-muted);
+    background: var(--page-plane); border-radius: 999px; padding: 1px 7px;
+  }
+  .project-track { min-height: var(--group-track-h); }
+  .group-divider { border-top: 2px solid var(--border); }
+  .drop-target { background: color-mix(in srgb, var(--series-1) 16%, var(--surface-1)) !important; }
+  .reorder-target-before { box-shadow: inset 0 2px 0 0 var(--series-1); }
+  .reorder-target-after { box-shadow: inset 0 -2px 0 0 var(--series-1); }
+  .project-bar {
+    position: absolute; top: var(--group-bar-top); height: var(--group-bar-h); border-radius: 6px;
+    border: 1px solid var(--baseline);
+    background-color: color-mix(in srgb, var(--text-muted) 16%, transparent);
+    background-image: repeating-linear-gradient(45deg, var(--baseline) 0 2px, transparent 2px 9px);
+  }
+  .project-empty {
+    position: absolute; left: 12px; top: 12px; font-size: 12px; color: var(--text-muted);
+  }
+
+  .bar {
+    position: absolute; top: var(--bar-top); height: var(--bar-h); border-radius: 6px;
+    display: flex; align-items: center; padding: 0 8px;
+    box-shadow: 0 0 0 2px var(--surface-1);
+    cursor: grab; user-select: none;
+  }
+  .row-even .bar { box-shadow: 0 0 0 2px color-mix(in srgb, var(--page-plane) 55%, var(--surface-1)); }
+  .bar:active { cursor: grabbing; }
+  .bar .badge {
+    color: #fff; font-size: 11px; font-weight: 700; white-space: nowrap;
+    overflow: hidden; text-overflow: clip; pointer-events: none;
+  }
+  .bar .handle {
+    position: absolute; top: 0; bottom: 0; width: 10px; cursor: ew-resize;
+  }
+  .bar .handle.left { left: -2px; }
+  .bar .handle.right { right: -2px; }
+  /* Left edge is flattened (no resize-left handle) when a bar's true start is earlier than the visible window; the bar can still be dragged/resized from the right. */
+  .bar.bar-truncated-left, .project-bar.bar-truncated-left {
+    border-top-left-radius: 0; border-bottom-left-radius: 0;
+  }
+
+  .row-label.resource-label { gap: 8px; }
+  .resource-label-top { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+  .name-input {
+    font: inherit; font-size: 13px; border: 1px solid transparent; background: transparent;
+    color: var(--text-primary); border-radius: 4px; padding: 4px 6px; flex: 1;
+    min-width: 0;
+  }
+  .name-input:hover, .name-input:focus { border-color: var(--baseline); background: var(--page-plane); }
+  .alloc-wrap {
+    display: flex; align-items: center; gap: 2px; flex: none;
+  }
+  .alloc-input {
+    font: inherit; font-size: 12px; border: 1px solid var(--baseline); background: var(--page-plane);
+    color: var(--text-primary); border-radius: 4px; padding: 4px 4px; width: 48px; text-align: right;
+  }
+  .alloc-unit { font-size: 11px; color: var(--text-muted); }
+  .del-btn {
+    flex: none; border: none; background: transparent; color: var(--text-muted);
+    font-size: 14px; cursor: pointer; border-radius: 4px; padding: 2px 6px; line-height: 1;
+  }
+  .del-btn:hover { color: var(--series-8); background: var(--page-plane); }
+
+  .empty-state {
+    padding: 28px; text-align: center; color: var(--text-muted); font-size: 13px;
+  }
+
+  .drag-tip {
+    position: fixed; pointer-events: none; z-index: 50;
+    background: var(--text-primary); color: var(--surface-1);
+    font-size: 11px; padding: 4px 8px; border-radius: 5px;
+    transform: translate(-50%, -130%);
+    white-space: nowrap; display: none;
+  }
+
+  @media print {
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    .header, .toolbar, .filters-block, .side-panel, .lock-overlay,
+    .drag-tip, .modal-overlay, .col-resize-handle,
+    .add-entry-btn, .del-btn, .collapse-toggle { display: none !important; }
+    .app { padding: 0; }
+    .layout { display: block; }
+    .gantt-card { border: none; box-shadow: none; }
+    .gantt-scroll { overflow: visible; }
+    .label-cell { position: static; }
+    @page { size: landscape; margin: 10mm; }
+  }
+</style>
+
+<div class="app" id="app">
+  <div class="layout">
+    <div class="main-col">
+      <div class="header">
+        <h1>Schedule A: Resource Planner</h1>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-actions">
+          <div class="start-date-field" title="Timeline start (snaps to the Monday of the chosen week)">
+            <label for="timelineStartInput">Start</label>
+            <input type="date" id="timelineStartInput" />
+          </div>
+          <div class="view-toggle" id="viewToggle" role="group" aria-label="Group chart by">
+            <button type="button" class="view-toggle-btn" data-view="project">Projects</button>
+            <button type="button" class="view-toggle-btn" data-view="resource">Resources</button>
+          </div>
+          <button type="button" class="ghost-btn" id="sortAzBtn" title="Sort project or resource rows alphabethical, then by date">Sort View</button>
+          <button type="button" class="ghost-btn" id="densityToggleBtn">Density:Normal</button>
+          <div class="zoom-control">
+            <button type="button" id="zoomOutBtn" title="Zoom out (narrower weeks)">−</button>
+            <span class="zoom-level" id="zoomLevelLabel">100%</span>
+            <button type="button" id="zoomInBtn" title="Zoom in (wider weeks)">+</button>
+          </div>
+          <button type="button" class="ghost-btn" id="manageRolesBtn">Assign Role</button>
+          <button type="button" class="ghost-btn" id="openFileBtn">Open Data File</button>
+          <button type="button" class="ghost-btn" id="cleanupBtn">Data Clean Up</button>
+          <button type="button" class="ghost-btn" id="saveAsBtn" style="display:none">Save As…</button>
+          <button type="button" class="ghost-btn warn" id="reconnectBtn" style="display:none">Reconnect file</button>
+          <button type="button" class="ghost-btn" id="exportBtn">Back Up Data</button>
+          <button type="button" class="ghost-btn" id="exportPngBtn" style="display:none">Export PNG</button>
+          <button type="button" class="ghost-btn" id="exportPdfBtn" style="display:none">Export PDF</button>
+          <span class="save-status" id="saveStatus">—</span>
+        </div>
+      </div>
+
+      <div class="editable-area" id="editableArea">
+        <div class="filters-block" id="filtersBlock" style="display:none">
+          <div class="filters-block-header">
+            <button type="button" class="collapse-toggle" id="filtersCollapseToggle" title="Collapse filters">▾</button>
+            <div class="resource-filter-label">Filter</div>
+          </div>
+          <div class="filters-block-body" id="filtersBlockBody">
+            <div class="resource-filter" id="resourceFilterBar" style="display:none">
+              <div class="resource-filter-chips" id="resourceFilterChips"></div>
+            </div>
+
+            <div class="resource-filter" id="projectFilterBar" style="display:none">
+              <div class="resource-filter-chips" id="projectFilterChips"></div>
+            </div>
+
+            <div class="resource-filter" id="rolesFilterBar" style="display:none">
+              <div class="resource-filter-chips" id="rolesFilterChips"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="gantt-card">
+          <div class="gantt-scroll">
+            <div class="gantt-grid" id="ganttGrid"></div>
+          </div>
+          <div class="col-resize-handle" id="colResizeHandle" title="Drag to resize column"></div>
+        </div>
+
+        <div class="lock-overlay" id="lockOverlay" style="display:none">
+          <div class="lock-overlay-inner">
+            <p>No data file is linked. Open an existing Gantt JSON file or create a new one — nothing is saved until you do.</p>
+            <div class="lock-overlay-actions">
+              <button type="button" class="ghost-btn" id="gateOpenBtn">Open Data File…</button>
+              <button type="button" class="ghost-btn" id="gateCreateBtn">Create New File…</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side-panel" id="sidePanel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-date-label">Selected week(s)</div>
+          <div class="panel-date" id="panelDate">—</div>
+        </div>
+        <button type="button" class="panel-close" id="panelClose" title="Close">✕</button>
+      </div>
+      <div class="view-toggle" id="panelViewToggle" role="group" aria-label="Show in panel">
+        <button type="button" class="view-toggle-btn" data-panel-view="project">Projects</button>
+        <button type="button" class="view-toggle-btn" data-panel-view="resource">Resources</button>
+      </div>
+      <div class="panel-filter">
+        <div class="panel-filter-header">
+          <button type="button" class="collapse-toggle" id="panelFilterCollapseToggle" title="Collapse filter">▾</button>
+          <div class="panel-filter-label" id="panelFilterLabel">Filter projects</div>
+        </div>
+        <div class="panel-filter-chips" id="panelFilterChips"></div>
+      </div>
+      <div class="panel-filter" id="panelRolesFilterRow" style="display:none">
+        <div class="panel-filter-header">
+          <button type="button" class="collapse-toggle" id="panelRolesFilterCollapseToggle" title="Collapse filter">▾</button>
+          <div class="panel-filter-label">Filter roles</div>
+        </div>
+        <div class="panel-filter-chips" id="panelRolesFilterChips"></div>
+      </div>
+      <div class="panel-summary" id="panelSummary"></div>
+      <div class="panel-list" id="panelList"></div>
+    </aside>
+  </div>
+
+  <div class="drag-tip" id="dragTip"></div>
+
+  <div class="modal-overlay" id="addModalOverlay" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Add resource</div>
+        <button type="button" class="panel-close" id="addModalClose" title="Close">✕</button>
+      </div>
+      <form class="add-form" id="addForm">
+        <div class="field">
+          <label for="projectInput">Project</label>
+          <input id="projectInput" type="text" list="projectList" placeholder="e.g. Website Redesign" required maxlength="60" />
+          <datalist id="projectList"></datalist>
+        </div>
+        <div class="field">
+          <label for="nameInput">Resource name</label>
+          <input id="nameInput" type="text" list="resourceNameList" placeholder="e.g. Alice" required maxlength="40" />
+          <datalist id="resourceNameList"></datalist>
+        </div>
+        <div class="field alloc">
+          <label for="allocInput">Allocation</label>
+          <input id="allocInput" type="number" min="0" step="1" value="100" required />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" id="addModalCancel">Cancel</button>
+          <button type="submit" title="Bars default to a one-week span starting after this resource's last entry in the same project">Add resource</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="rolesModalOverlay" style="display:none">
+    <div class="modal roles-modal">
+      <div class="modal-header">
+        <div class="modal-title">Manage Roles</div>
+        <button type="button" class="panel-close" id="rolesModalClose" title="Close">✕</button>
+      </div>
+      <div class="roles-new-row">
+        <input id="newRoleInput" type="text" placeholder="Add a new role…" maxlength="40" />
+        <button type="button" class="ghost-btn" id="addRoleBtn">Add</button>
+      </div>
+      <div class="roles-resource-list" id="rolesResourceList"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="cleanupModalOverlay" style="display:none">
+    <div class="modal cleanup-modal">
+      <div class="modal-header">
+        <div class="modal-title">Data Clean Up</div>
+        <button type="button" class="panel-close" id="cleanupModalClose" title="Close">✕</button>
+      </div>
+      <div class="cleanup-warning">Don't forget to make a back up!</div>
+      <div class="cleanup-list" id="cleanupList"></div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" id="cleanupCancelBtn">Cancel</button>
+        <button type="button" id="cleanupOkBtn">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var TOTAL_WEEKS = 26;
+  var BASE_WEEK_WIDTH = 100;
+  var MIN_ZOOM = 0.5;
+  var MAX_ZOOM = 2;
+  var zoom = 1;
+  try {
+    var storedZoom = Number(localStorage.getItem('gantt-zoom'));
+    if (isFinite(storedZoom) && storedZoom >= MIN_ZOOM && storedZoom <= MAX_ZOOM) {
+      zoom = storedZoom;
+    }
+  } catch (err) {}
+  var WEEK_WIDTH = BASE_WEEK_WIDTH * zoom;
+  // Fixed, never-changing internal reference point. Resource start/duration are always stored
+  // as week-offsets from this Monday, so a resource's real calendar dates never move when the
+  // visible timeline window (timelineStartDate) is panned — only what's on screen changes.
+  var DATA_EPOCH = new Date(2000, 0, 3);
+  var MIN_LABEL_WIDTH = 160;
+  var MAX_LABEL_WIDTH = 480;
+  var LABEL_WIDTH = 220;
+  try {
+    var storedLabelWidth = Number(localStorage.getItem('gantt-label-width'));
+    if (isFinite(storedLabelWidth) && storedLabelWidth >= MIN_LABEL_WIDTH && storedLabelWidth <= MAX_LABEL_WIDTH) {
+      LABEL_WIDTH = storedLabelWidth;
+    }
+  } catch (err) {}
+  var DEFAULT_DURATION = 1; // weeks
+
+  var appEl = document.getElementById('app');
+  var grid = document.getElementById('ganttGrid');
+  var colResizeHandle = document.getElementById('colResizeHandle');
+  var dragTip = document.getElementById('dragTip');
+  var addForm = document.getElementById('addForm');
+  var projectInput = document.getElementById('projectInput');
+  var nameInput = document.getElementById('nameInput');
+  var allocInput = document.getElementById('allocInput');
+  var addModalOverlay = document.getElementById('addModalOverlay');
+  var addModalClose = document.getElementById('addModalClose');
+  var addModalCancel = document.getElementById('addModalCancel');
+  var openFileBtn = document.getElementById('openFileBtn');
+  var cleanupBtn = document.getElementById('cleanupBtn');
+  var cleanupModalOverlay = document.getElementById('cleanupModalOverlay');
+  var cleanupModalClose = document.getElementById('cleanupModalClose');
+  var cleanupCancelBtn = document.getElementById('cleanupCancelBtn');
+  var cleanupOkBtn = document.getElementById('cleanupOkBtn');
+  var cleanupList = document.getElementById('cleanupList');
+  var saveAsBtn = document.getElementById('saveAsBtn');
+  var reconnectBtn = document.getElementById('reconnectBtn');
+  var exportBtn = document.getElementById('exportBtn');
+  var exportPngBtn = document.getElementById('exportPngBtn');
+  var exportPdfBtn = document.getElementById('exportPdfBtn');
+  var viewToggle = document.getElementById('viewToggle');
+  var viewToggleBtns = viewToggle.querySelectorAll('.view-toggle-btn');
+  var timelineStartInput = document.getElementById('timelineStartInput');
+  var densityToggleBtn = document.getElementById('densityToggleBtn');
+  var zoomOutBtn = document.getElementById('zoomOutBtn');
+  var zoomInBtn = document.getElementById('zoomInBtn');
+  var zoomLevelLabel = document.getElementById('zoomLevelLabel');
+  var sortAzBtn = document.getElementById('sortAzBtn');
+  var manageRolesBtn = document.getElementById('manageRolesBtn');
+  var rolesModalOverlay = document.getElementById('rolesModalOverlay');
+  var rolesModalClose = document.getElementById('rolesModalClose');
+  var newRoleInput = document.getElementById('newRoleInput');
+  var addRoleBtn = document.getElementById('addRoleBtn');
+  var rolesResourceList = document.getElementById('rolesResourceList');
+  var saveStatus = document.getElementById('saveStatus');
+  var sidePanel = document.getElementById('sidePanel');
+  var panelDate = document.getElementById('panelDate');
+  var panelViewToggle = document.getElementById('panelViewToggle');
+  var panelViewToggleBtns = panelViewToggle.querySelectorAll('.view-toggle-btn');
+  var panelFilterLabel = document.getElementById('panelFilterLabel');
+  var panelSummary = document.getElementById('panelSummary');
+  var panelList = document.getElementById('panelList');
+  var panelClose = document.getElementById('panelClose');
+  var panelFilterChips = document.getElementById('panelFilterChips');
+  var panelRolesFilterRow = document.getElementById('panelRolesFilterRow');
+  var panelRolesFilterChips = document.getElementById('panelRolesFilterChips');
+  var panelFilterCollapseToggle = document.getElementById('panelFilterCollapseToggle');
+  var panelRolesFilterCollapseToggle = document.getElementById('panelRolesFilterCollapseToggle');
+  var filtersBlock = document.getElementById('filtersBlock');
+  var filtersBlockBody = document.getElementById('filtersBlockBody');
+  var filtersCollapseToggle = document.getElementById('filtersCollapseToggle');
+  var resourceFilterBar = document.getElementById('resourceFilterBar');
+  var resourceFilterChips = document.getElementById('resourceFilterChips');
+  var projectFilterBar = document.getElementById('projectFilterBar');
+  var projectFilterChips = document.getElementById('projectFilterChips');
+  var rolesFilterBar = document.getElementById('rolesFilterBar');
+  var rolesFilterChips = document.getElementById('rolesFilterChips');
+  var editableArea = document.getElementById('editableArea');
+  var lockOverlay = document.getElementById('lockOverlay');
+  var gateOpenBtn = document.getElementById('gateOpenBtn');
+  var gateCreateBtn = document.getElementById('gateCreateBtn');
+
+  var IDB_NAME = 'gantt-planner-db';
+  var IDB_STORE = 'handles';
+  var IDB_HANDLE_KEY = 'lastFileHandle';
+
+  var resources = [];
+  var nextId = 1;
+  var timelineStartDate = mondayOnOrBefore(new Date()); // fixed calendar anchor for week 0; persisted with the file
+  var selectedWeeks = []; // array of selected week indices, shown together in the side panel
+  var panelViewMode = 'resource'; // 'resource' = list resources filtered by project; 'project' = list projects filtered by resource
+  var panelFilter = null; // null = all projects; otherwise an array of selected project names
+  var panelResourceFilter = null; // null = all resources; otherwise an array of selected resource names (panel's "Filter resources", project-view only)
+  var panelRolesFilter = null; // null = all roles; otherwise an array of selected role tags (side panel filter, applies in both panel view modes)
+  var collapsedGroups = { project: {}, resource: {} }; // per-view: group name -> true when its rows are hidden
+  var resourceFilter = null; // null = all resources; otherwise an array of selected resource names (chart-wide)
+  var projectFilter = null; // null = all projects; otherwise an array of selected project names (chart-wide)
+  var rolesFilter = null; // null = all roles; otherwise an array of selected role tags (chart-wide)
+  var rolesCatalog = []; // ordered list of role tags available to assign, managed via the Roles popup
+  var resourceRoles = {}; // resource name -> assigned role tag, shared across every assignment for that person
+  var viewMode = 'project'; // 'project' groups the chart by project, 'resource' groups it by resource
+  try {
+    if (localStorage.getItem('gantt-view-mode') === 'resource') viewMode = 'resource';
+  } catch (err) {}
+  var density = 'normal'; // 'normal' or 'narrow' row height
+  try {
+    if (localStorage.getItem('gantt-density') === 'narrow') density = 'narrow';
+  } catch (err) {}
+  var filtersCollapsed = false; // main-screen "Filter" chip block, collapsed to reclaim vertical space
+  try {
+    if (localStorage.getItem('gantt-filters-collapsed') === '1') filtersCollapsed = true;
+  } catch (err) {}
+  var panelFiltersCollapsed = false; // side-panel project/resource filter chip block
+  try {
+    if (localStorage.getItem('gantt-panel-filters-collapsed') === '1') panelFiltersCollapsed = true;
+  } catch (err) {}
+  var panelRolesFiltersCollapsed = false; // side-panel roles filter chip block, collapses independently of the block above
+  try {
+    if (localStorage.getItem('gantt-panel-roles-filters-collapsed') === '1') panelRolesFiltersCollapsed = true;
+  } catch (err) {}
+
+  var fsApiSupported = !!(window.showOpenFilePicker && window.showSaveFilePicker);
+  var fileHandle = null;
+  var fileName = null;
+  var pendingReconnectHandle = null;
+  var pendingReconnectFileName = null;
+
+  // Grid is week-granular: every column is a Monday-Sunday week, and resource
+  // start/duration are stored directly in whole weeks (no day-level snapping needed).
+  function mondayOnOrBefore(date) {
+    var d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    var wd = d.getDay();
+    var backToMonday = (wd === 0) ? 6 : (wd - 1);
+    d.setDate(d.getDate() - backToMonday);
+    return d;
+  }
+  function isoDateString(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+  function parseIsoDate(s) {
+    var parts = String(s || '').split('-');
+    if (parts.length !== 3) return null;
+    var y = Number(parts[0]), m = Number(parts[1]), d = Number(parts[2]);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return null;
+    var date = new Date(y, m - 1, d);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+  // baseDate is a fixed calendar anchor (the Monday behind column 0), set via timelineStartDate
+  // rather than derived from "today" — so the grid stays put once the file is saved/reopened.
+  function baseDate() {
+    return new Date(timelineStartDate);
+  }
+  function dateForWeek(w) {
+    var d = new Date(baseDate());
+    d.setDate(d.getDate() + w * 7);
+    return d;
+  }
+  function weekEndDate(w) {
+    var d = dateForWeek(w);
+    d.setDate(d.getDate() + 6);
+    return d;
+  }
+  function todayWeekIndex() {
+    var t = mondayOnOrBefore(new Date());
+    return Math.round((t - baseDate()) / (7 * 86400000));
+  }
+  function todayFractionWithinWeek() {
+    var wd = new Date().getDay();
+    return ((wd === 0) ? 6 : (wd - 1)) / 7;
+  }
+  function fmtShort(d) { return d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }); }
+  function fmtLong(d) { return d.toLocaleDateString('en-GB', { month: 'long', day: 'numeric', year: 'numeric' }); }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  // Resource start/duration are stored relative to DATA_EPOCH ("anchor" week numbers). The grid's
+  // visible columns are relative to timelineStartDate ("view" week numbers). viewOffsetWeeks is the
+  // number of anchor-weeks between them, so anchorWeek = viewWeek + offset, viewWeek = anchorWeek - offset.
+  function viewOffsetWeeks() {
+    return Math.round((timelineStartDate - DATA_EPOCH) / (7 * 86400000));
+  }
+  function dateForAnchorWeek(w) {
+    var d = new Date(DATA_EPOCH);
+    d.setDate(d.getDate() + w * 7);
+    return d;
+  }
+  function weekEndDateForAnchor(w) {
+    var d = dateForAnchorWeek(w);
+    d.setDate(d.getDate() + 6);
+    return d;
+  }
+  function rangeLabelShortAnchor(startW, endWExclusive) {
+    return fmtShort(dateForAnchorWeek(startW)) + ' – ' + fmtShort(weekEndDateForAnchor(endWExclusive - 1));
+  }
+  // Converts an anchor-relative [start, start+duration) range into visible-column coordinates.
+  // Returns null if the range had already finished before the visible window starts (hidden);
+  // otherwise the start is pinned to column 0 when it began earlier ("remaining time only") —
+  // the right edge is never clipped, matching how bars have always been free to run past the
+  // last visible week.
+  function clipRangeToView(anchorStart, anchorDuration) {
+    var offset = viewOffsetWeeks();
+    var viewStart = anchorStart - offset;
+    var viewEnd = viewStart + anchorDuration;
+    if (viewEnd <= 0) return null;
+    return { start: Math.max(viewStart, 0), end: viewEnd, truncatedLeft: viewStart < 0 };
+  }
+
+  function rangeLabelShort(startW, endWExclusive) {
+    return fmtShort(dateForWeek(startW)) + ' – ' + fmtShort(weekEndDate(endWExclusive - 1));
+  }
+  function weekCellLabel(w) {
+    return fmtShort(dateForWeek(w));
+  }
+  function weekLabelLong(w) {
+    return 'Week of ' + fmtLong(dateForWeek(w));
+  }
+  function selectedWeeksLabel() {
+    var sorted = selectedWeeks.slice().sort(function (a, b) { return a - b; });
+    if (!sorted.length) return '—';
+    if (sorted.length === 1) return weekLabelLong(sorted[0]);
+    var runs = [];
+    var runStart = sorted[0];
+    var prev = sorted[0];
+    for (var i = 1; i < sorted.length; i++) {
+      if (sorted[i] === prev + 1) { prev = sorted[i]; continue; }
+      runs.push([runStart, prev]);
+      runStart = sorted[i];
+      prev = sorted[i];
+    }
+    runs.push([runStart, prev]);
+    var parts = runs.map(function (run) {
+      return run[0] === run[1]
+        ? fmtShort(dateForWeek(run[0]))
+        : fmtShort(dateForWeek(run[0])) + '–' + fmtShort(weekEndDate(run[1]));
+    });
+    return sorted.length + ' weeks selected (' + parts.join(', ') + ')';
+  }
+
+  // `start` is anchor-relative (weeks from DATA_EPOCH) — callers convert from view coordinates.
+  function addResourceInternal(name, allocation, start, duration, project) {
+    resources.push({
+      id: nextId++,
+      name: name,
+      project: project || 'Untitled Project',
+      allocation: allocation,
+      start: Math.round(start),
+      duration: Math.max(1, duration)
+    });
+  }
+
+  // Merges each resource's [start, start+duration) span into the smallest set of non-overlapping,
+  // sorted ranges that actually have coverage — so the group bar only spans time where at least
+  // one resource/project is active, and shows a gap (rather than one continuous bar) where none are.
+  function projectRangesFor(list) {
+    if (!list.length) return [];
+    var intervals = list.map(function (r) { return { start: r.start, end: r.start + r.duration }; })
+      .sort(function (a, b) { return a.start - b.start; });
+    var merged = [{ start: intervals[0].start, end: intervals[0].end }];
+    for (var i = 1; i < intervals.length; i++) {
+      var last = merged[merged.length - 1];
+      if (intervals[i].start <= last.end) {
+        last.end = Math.max(last.end, intervals[i].end);
+      } else {
+        merged.push({ start: intervals[i].start, end: intervals[i].end });
+      }
+    }
+    return merged;
+  }
+
+  function keyForProject(r) { return r.project || 'Untitled Project'; }
+  function normalizeResourceName(name) { return (name || 'Untitled').trim() || 'Untitled'; }
+  function keyForResource(r) { return normalizeResourceName(r.name); }
+  function entryGroupKey(r) { return viewMode === 'resource' ? keyForResource(r) : keyForProject(r); }
+  // Role is a property of the person (keyed by resource name), not of a single assignment,
+  // so it's shared across every entry for that name rather than stored per-row.
+  function roleForResource(r) { return resourceRoles[keyForResource(r)] || ''; }
+
+  function groupBy(keyFn) {
+    var order = [];
+    var map = {};
+    resources.forEach(function (r) {
+      var key = keyFn(r);
+      if (!map[key]) { map[key] = { name: key, resources: [] }; order.push(key); }
+      map[key].resources.push(r);
+    });
+    return order.map(function (key) { return map[key]; });
+  }
+
+  function projectGroups() { return groupBy(keyForProject); }
+  // Projects whose last assignment ended before the visible timeline's start are excluded —
+  // they'd otherwise appear as filter options for a slice of the chart the user can't see.
+  function visibleProjectGroups() {
+    var offset = viewOffsetWeeks();
+    return projectGroups().filter(function (g) {
+      return g.resources.some(function (r) { return (r.start + r.duration) > offset; });
+    });
+  }
+  function resourceGroups() { return groupBy(keyForResource); }
+  function displayGroups() { return viewMode === 'resource' ? resourceGroups() : projectGroups(); }
+
+  function uniqueResourceNames() {
+    var seen = {};
+    var names = [];
+    resources.forEach(function (r) {
+      var n = (r.name || 'Untitled').trim() || 'Untitled';
+      if (!seen[n]) { seen[n] = true; names.push(n); }
+    });
+    return names;
+  }
+  // Resources whose last assignment ended before the visible timeline's start are excluded —
+  // mirrors visibleProjectGroups() so old, no-longer-visible people don't clutter resource filters.
+  function visibleResourceNames() {
+    var offset = viewOffsetWeeks();
+    var active = {};
+    resources.forEach(function (r) {
+      if (r.start + r.duration > offset) active[normalizeResourceName(r.name)] = true;
+    });
+    return uniqueResourceNames().filter(function (n) { return active[n]; });
+  }
+
+  function uniqueRoles() { return rolesCatalog.slice(); }
+
+  // Reorders the flat resources array so `movedId` sits directly before/after `targetId`.
+  // Row order within a project is just array order, so this is how drag-to-reorder works.
+  function reorderResource(movedId, targetId, insertAfter) {
+    var fromIdx = resources.findIndex(function (r) { return r.id === movedId; });
+    if (fromIdx === -1) return;
+    var moved = resources[fromIdx];
+    resources.splice(fromIdx, 1);
+    var toIdx = resources.findIndex(function (r) { return r.id === targetId; });
+    if (toIdx === -1) { resources.splice(fromIdx, 0, moved); return; }
+    resources.splice(insertAfter ? toIdx + 1 : toIdx, 0, moved);
+  }
+
+  // Sorts groups (projects in project view, resources in resource view) alphabetically by name,
+  // then sorts the rows within each group (resources in project view, projects in resource view)
+  // by start date, breaking ties alphabetically.
+  function sortGroupsAlphabetically() {
+    var groups = displayGroups();
+    groups.sort(function (a, b) {
+      return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+    });
+    groups.forEach(function (g) {
+      g.resources.sort(function (a, b) {
+        if (a.start !== b.start) return a.start - b.start;
+        var an = (viewMode === 'resource' ? a.project : a.name) || '';
+        var bn = (viewMode === 'resource' ? b.project : b.name) || '';
+        return an.localeCompare(bn, undefined, { sensitivity: 'base' });
+      });
+    });
+    var sorted = [];
+    groups.forEach(function (g) { sorted = sorted.concat(g.resources); });
+    resources = sorted;
+  }
+
+  // ---- Persistence ----
+  var saveTimer = null;
+  var statusTimer = null;
+
+  function timeNow() { return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+
+  function flashStatus(text) {
+    saveStatus.textContent = text;
+    saveStatus.classList.add('flash');
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(function () { saveStatus.classList.remove('flash'); }, 1200);
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(persistState, 400);
+  }
+
+  function currentStateData() {
+    // version 3: resource start/duration are stored relative to the fixed DATA_EPOCH, not
+    // relative to timelineStart, so panning the view never rewrites saved dates.
+    return { version: 3, unit: 'week', timelineStart: isoDateString(timelineStartDate), resources: resources, nextId: nextId, rolesCatalog: rolesCatalog, resourceRoles: resourceRoles };
+  }
+
+  function persistState() {
+    if (!fileHandle) {
+      // No live link (unsupported browser, or not yet linked): nothing to autosave to.
+      // The Export/Import buttons are the manual JSON fallback in that case.
+      return;
+    }
+    writeStateToFile(fileHandle, currentStateData()).then(function () {
+      flashStatus('Saved to ' + fileName + ' · ' + timeNow());
+    }).catch(function () {
+      flashStatus('Lost access to ' + fileName + ' — click Open Data File to relink');
+      fileHandle = null;
+      fileName = null;
+      idbDel(IDB_HANDLE_KEY);
+      updateFileUi();
+      updateLockState();
+    });
+  }
+
+  // ---- IndexedDB (remembers the linked file handle across reloads) ----
+  function idbOpen() {
+    return new Promise(function (resolve, reject) {
+      var req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = function () { req.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+  function idbSet(key, val) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(val, key);
+        tx.oncomplete = function () { resolve(); };
+        tx.onerror = function () { reject(tx.error); };
+      });
+    });
+  }
+  function idbGet(key) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(IDB_STORE, 'readonly');
+        var req = tx.objectStore(IDB_STORE).get(key);
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      });
+    });
+  }
+  function idbDel(key) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(key);
+        tx.oncomplete = function () { resolve(); };
+        tx.onerror = function () { reject(tx.error); };
+      });
+    });
+  }
+
+  // ---- Linked file (File System Access API) ----
+  function writeStateToFile(handle, data) {
+    return handle.createWritable().then(function (writable) {
+      return writable.write(JSON.stringify(data, null, 2)).then(function () {
+        return writable.close();
+      });
+    });
+  }
+
+  function loadFromFileHandle(handle) {
+    return handle.getFile().then(function (file) {
+      return file.text();
+    }).then(function (text) {
+      var data = JSON.parse(text);
+      if (!applyState(data)) throw new Error('unrecognized file shape');
+      fileHandle = handle;
+      fileName = handle.name;
+      render();
+      updateFileUi();
+      updateLockState();
+      flashStatus('Linked to ' + fileName);
+    });
+  }
+
+  function updateFileUi() {
+    openFileBtn.style.display = fsApiSupported ? '' : 'none';
+    reconnectBtn.style.display = (fsApiSupported && pendingReconnectHandle) ? '' : 'none';
+    if (pendingReconnectHandle) {
+      reconnectBtn.textContent = 'Reconnect ' + (pendingReconnectFileName || 'file');
+    }
+  }
+
+  function updateLockState() {
+    var locked = fsApiSupported && !fileHandle;
+    editableArea.classList.toggle('locked', locked);
+    lockOverlay.style.display = locked ? '' : 'none';
+  }
+
+  function applyState(data) {
+    if (!data || !Array.isArray(data.resources)) return false;
+    var isWeekUnit = data.unit === 'week';
+    var savedVersion = Number(data.version) || 1;
+    var parsedStart = data.timelineStart ? parseIsoDate(data.timelineStart) : null;
+    timelineStartDate = parsedStart ? mondayOnOrBefore(parsedStart) : mondayOnOrBefore(new Date());
+
+    // Files saved before version 3 stored start/duration relative to their own timelineStart
+    // (panning used to rewrite every resource's start). Migrate those into DATA_EPOCH-relative
+    // numbers once on load so this and every later load/save stays put regardless of panning.
+    var migrateOffsetWeeks = 0;
+    if (savedVersion < 3) {
+      var oldAnchor = parsedStart || timelineStartDate;
+      migrateOffsetWeeks = Math.round((oldAnchor - DATA_EPOCH) / (7 * 86400000));
+    }
+
+    resources = data.resources.map(function (r) {
+      var rawStart = Number(r.start) || 0;
+      var rawDuration = Math.max(1, Number(r.duration) || 1);
+      var start = isWeekUnit ? Math.round(rawStart) : Math.round(rawStart / 7);
+      var duration = isWeekUnit ? Math.max(1, Math.round(rawDuration)) : Math.max(1, Math.round(rawDuration / 7));
+      return {
+        id: Number(r.id),
+        name: String(r.name || ''),
+        project: String(r.project || 'Untitled Project'),
+        allocation: isFinite(Number(r.allocation)) ? Number(r.allocation) : 0,
+        start: start + migrateOffsetWeeks,
+        duration: duration
+      };
+    });
+    nextId = Number(data.nextId) || (resources.reduce(function (m, r) { return Math.max(m, r.id); }, 0) + 1);
+    // "skillsCatalog"/"resourceSkills" were this feature's original field names before it was
+    // renamed to "roles" — read them as a fallback so files saved before the rename don't lose data.
+    rolesCatalog = Array.isArray(data.rolesCatalog) ? data.rolesCatalog.map(String) : (Array.isArray(data.skillsCatalog) ? data.skillsCatalog.map(String) : []);
+    resourceRoles = (data.resourceRoles && typeof data.resourceRoles === 'object') ? data.resourceRoles : ((data.resourceSkills && typeof data.resourceSkills === 'object') ? data.resourceSkills : {});
+    return true;
+  }
+
+  function monthSegments() {
+    var segs = [];
+    var cur = null;
+    for (var w = 0; w < TOTAL_WEEKS; w++) {
+      var d = dateForWeek(w);
+      var key = d.getFullYear() + '-' + d.getMonth();
+      if (!cur || cur.key !== key) {
+        cur = { key: key, label: d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }), count: 0 };
+        segs.push(cur);
+      }
+      cur.count++;
+    }
+    return segs;
+  }
+
+  function gridBackground() {
+    var todayLeft = (todayWeekIndex() + todayFractionWithinWeek()) * WEEK_WIDTH;
+    var images = ['repeating-linear-gradient(to bottom, var(--today-marker) 0, var(--today-marker) 2px, transparent 2px, transparent 6px)'];
+    var sizes = ['2px 100%'];
+    var positions = [(LABEL_WIDTH + todayLeft) + 'px 0'];
+    var repeats = ['no-repeat'];
+
+    if (selectedWeeks.length) {
+      var tint = 'color-mix(in srgb, var(--series-1) 20%, transparent)';
+      selectedWeeks.forEach(function (w) {
+        images.push('linear-gradient(' + tint + ', ' + tint + ')');
+        sizes.push(WEEK_WIDTH + 'px 100%');
+        positions.push((LABEL_WIDTH + w * WEEK_WIDTH) + 'px 0');
+        repeats.push('no-repeat');
+      });
+    }
+
+    images.push('linear-gradient(to right, var(--gridline) 0 1px, transparent 1px 100%)');
+    sizes.push(WEEK_WIDTH + 'px 100%');
+    positions.push(LABEL_WIDTH + 'px 0');
+    repeats.push('repeat-x');
+
+    return {
+      backgroundImage: images.join(', '),
+      backgroundSize: sizes.join(', '),
+      backgroundPosition: positions.join(', '),
+      backgroundRepeat: repeats.join(', ')
+    };
+  }
+
+  function renderPanelFilterChips() {
+    var isResourceView = panelViewMode === 'resource';
+    panelFilterLabel.textContent = isResourceView ? 'Filter projects' : 'Filter resources';
+    panelFilterChips.classList.toggle('filter-chips-red', !isResourceView);
+
+    var names = (isResourceView ? visibleProjectGroups().map(function (g) { return g.name; }) : visibleResourceNames()).sort(function (a, b) { return a.localeCompare(b); });
+    var filterState = isResourceView ? panelFilter : panelResourceFilter;
+    var isAll = filterState === null;
+    var isNone = !isAll && filterState.length === 0;
+    var dataAttr = isResourceView ? 'data-filter-project' : 'data-filter-resource';
+    var allLabel = isResourceView ? 'All projects' : 'All resources';
+    var html = '<button type="button" class="filter-chip' + (isAll ? ' active' : '') + '" data-filter-all="1">' + allLabel + '</button>';
+    html += '<button type="button" class="filter-chip' + (isNone ? ' active' : '') + '" data-filter-none="1">None</button>';
+    html += names.map(function (n) {
+      var checked = isAll || filterState.indexOf(n) !== -1;
+      return '<button type="button" class="filter-chip' + (checked ? ' active' : '') + '" ' + dataAttr + '="' + escapeAttr(n) + '">' + escapeAttr(n) + '</button>';
+    }).join('');
+    panelFilterChips.innerHTML = html;
+  }
+
+  function renderPanelRolesFilterChips() {
+    var names = uniqueRoles().sort(function (a, b) { return a.localeCompare(b); });
+    var isAll = panelRolesFilter === null;
+    var isNone = !isAll && panelRolesFilter.length === 0;
+    var html = '<button type="button" class="filter-chip' + (isAll ? ' active' : '') + '" data-filter-all="1">All roles</button>';
+    html += '<button type="button" class="filter-chip' + (isNone ? ' active' : '') + '" data-filter-none="1">None</button>';
+    html += names.map(function (n) {
+      var checked = isAll || panelRolesFilter.indexOf(n) !== -1;
+      return '<button type="button" class="filter-chip' + (checked ? ' active' : '') + '" data-filter-panel-role="' + escapeAttr(n) + '">' + escapeAttr(n) + '</button>';
+    }).join('');
+    panelRolesFilterChips.innerHTML = html;
+  }
+
+  function panelRowHtml(name, subtitle, rangeText, total, flagOverAllocated) {
+    var overAllocated = flagOverAllocated && total > 100;
+    return '<div class="panel-row">' +
+      '<div class="panel-row-main">' +
+        '<div class="panel-row-name">' + escapeAttr(name) + '</div>' +
+        '<div class="panel-row-project">' + escapeAttr(subtitle) + '</div>' +
+        (rangeText ? '<div class="panel-row-range">' + rangeText + '</div>' : '') +
+      '</div>' +
+      '<div class="panel-row-alloc' + (overAllocated ? ' over-allocated' : '') + '">' + total + '%</div>' +
+    '</div>';
+  }
+
+  function renderResourceFilterChips() {
+    var names = visibleResourceNames().sort(function (a, b) { return a.localeCompare(b); });
+    resourceFilterBar.style.display = names.length ? '' : 'none';
+    var isAll = resourceFilter === null;
+    var isNone = !isAll && resourceFilter.length === 0;
+    var html = '<button type="button" class="filter-chip' + (isAll ? ' active' : '') + '" data-filter-all="1">All resources</button>';
+    html += '<button type="button" class="filter-chip' + (isNone ? ' active' : '') + '" data-filter-none="1">None</button>';
+    html += names.map(function (n) {
+      var checked = isAll || resourceFilter.indexOf(n) !== -1;
+      return '<button type="button" class="filter-chip' + (checked ? ' active' : '') + '" data-filter-resource="' + escapeAttr(n) + '">' + escapeAttr(n) + '</button>';
+    }).join('');
+    resourceFilterChips.innerHTML = html;
+  }
+
+  function renderProjectFilterChips() {
+    var names = visibleProjectGroups().map(function (g) { return g.name; }).sort(function (a, b) { return a.localeCompare(b); });
+    projectFilterBar.style.display = names.length ? '' : 'none';
+    var isAll = projectFilter === null;
+    var isNone = !isAll && projectFilter.length === 0;
+    var html = '<button type="button" class="filter-chip' + (isAll ? ' active' : '') + '" data-filter-all="1">All projects</button>';
+    html += '<button type="button" class="filter-chip' + (isNone ? ' active' : '') + '" data-filter-none="1">None</button>';
+    html += names.map(function (n) {
+      var checked = isAll || projectFilter.indexOf(n) !== -1;
+      return '<button type="button" class="filter-chip' + (checked ? ' active' : '') + '" data-filter-project="' + escapeAttr(n) + '">' + escapeAttr(n) + '</button>';
+    }).join('');
+    projectFilterChips.innerHTML = html;
+  }
+
+  function renderRolesFilterChips() {
+    var names = uniqueRoles().sort(function (a, b) { return a.localeCompare(b); });
+    rolesFilterBar.style.display = names.length ? '' : 'none';
+    var isAll = rolesFilter === null;
+    var isNone = !isAll && rolesFilter.length === 0;
+    var html = '<button type="button" class="filter-chip' + (isAll ? ' active' : '') + '" data-filter-all="1">All roles</button>';
+    html += '<button type="button" class="filter-chip' + (isNone ? ' active' : '') + '" data-filter-none="1">None</button>';
+    html += names.map(function (n) {
+      var checked = isAll || rolesFilter.indexOf(n) !== -1;
+      return '<button type="button" class="filter-chip' + (checked ? ' active' : '') + '" data-filter-roles="' + escapeAttr(n) + '">' + escapeAttr(n) + '</button>';
+    }).join('');
+    rolesFilterChips.innerHTML = html;
+  }
+
+  function renderPanel() {
+    renderPanelFilterChips();
+    renderPanelRolesFilterChips();
+    panelViewToggleBtns.forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.panelView === panelViewMode);
+    });
+    panelFilterChips.style.display = panelFiltersCollapsed ? 'none' : '';
+    panelFilterCollapseToggle.classList.toggle('collapsed', panelFiltersCollapsed);
+    panelFilterCollapseToggle.title = (panelFiltersCollapsed ? 'Expand' : 'Collapse') + ' filter';
+
+    panelRolesFilterRow.style.display = uniqueRoles().length ? '' : 'none';
+    panelRolesFilterChips.style.display = panelRolesFiltersCollapsed ? 'none' : '';
+    panelRolesFilterCollapseToggle.classList.toggle('collapsed', panelRolesFiltersCollapsed);
+    panelRolesFilterCollapseToggle.title = (panelRolesFiltersCollapsed ? 'Expand' : 'Collapse') + ' filter';
+
+    if (!selectedWeeks.length) {
+      sidePanel.classList.remove('open');
+      return;
+    }
+    sidePanel.classList.add('open');
+    panelDate.textContent = selectedWeeksLabel();
+
+    var isResourceView = panelViewMode === 'resource';
+    var panelOffset = viewOffsetWeeks();
+
+    if (isResourceView) {
+      var allProjectNames = visibleProjectGroups().map(function (g) { return g.name; });
+      var isAll = panelFilter === null;
+      var isRolesAll = panelRolesFilter === null;
+      var active = resources.filter(function (r) {
+        var rViewStart = r.start - panelOffset;
+        var inRange = selectedWeeks.some(function (w) { return w >= rViewStart && w < rViewStart + r.duration; });
+        var inFilter = isAll || panelFilter.indexOf(r.project || 'Untitled Project') !== -1;
+        var inRoleFilter = isRolesAll || panelRolesFilter.indexOf(roleForResource(r)) !== -1;
+        return inRange && inFilter && inRoleFilter;
+      });
+      var total = active.reduce(function (sum, r) { return sum + (Number(r.allocation) || 0); }, 0);
+      var projectsInvolved = {};
+      active.forEach(function (r) { projectsInvolved[r.project || 'Untitled Project'] = true; });
+      var projectCount = Object.keys(projectsInvolved).length;
+
+      var byName = {};
+      var nameOrder = [];
+      active.forEach(function (r) {
+        var key = (r.name || 'Untitled').trim() || 'Untitled';
+        if (!byName[key]) { byName[key] = { name: key, total: 0, entries: [] }; nameOrder.push(key); }
+        byName[key].total += Number(r.allocation) || 0;
+        byName[key].entries.push(r);
+      });
+      var peopleCount = nameOrder.length;
+
+      var filterNote = isAll ? '' : ' · filtered to ' + panelFilter.length + ' of ' + allProjectNames.length + ' projects';
+      filterNote += isRolesAll ? '' : ' · filtered to ' + panelRolesFilter.length + ' of ' + uniqueRoles().length + ' roles';
+      panelSummary.textContent = peopleCount
+        ? peopleCount + ' resource' + (peopleCount === 1 ? '' : 's') + ' · ' + total + '% total allocation' +
+          (projectCount > 1 ? ' · ' + projectCount + ' projects' : '') + filterNote
+        : 'No resources allocated for the selected week(s)' + filterNote;
+
+      panelList.innerHTML = nameOrder.map(function (key) {
+        var g = byName[key];
+        var projectNames = [];
+        g.entries.forEach(function (e) {
+          var p = e.project || 'Untitled Project';
+          if (projectNames.indexOf(p) === -1) projectNames.push(p);
+        });
+        var subtitle = projectNames.join(', ') + (g.entries.length > 1 ? ' · ' + g.entries.length + ' assignments' : '');
+        var rangeText = g.entries.length === 1 ? rangeLabelShortAnchor(g.entries[0].start, g.entries[0].start + g.entries[0].duration) : '';
+        return panelRowHtml(g.name, subtitle, rangeText, g.total, true);
+      }).join('');
+    } else {
+      var allResNames = visibleResourceNames();
+      var isAllRes = panelResourceFilter === null;
+      var isRolesAllR = panelRolesFilter === null;
+      var activeR = resources.filter(function (r) {
+        var rViewStart2 = r.start - panelOffset;
+        var inRange = selectedWeeks.some(function (w) { return w >= rViewStart2 && w < rViewStart2 + r.duration; });
+        var inFilter = isAllRes || panelResourceFilter.indexOf((r.name || 'Untitled').trim() || 'Untitled') !== -1;
+        var inRoleFilter = isRolesAllR || panelRolesFilter.indexOf(roleForResource(r)) !== -1;
+        return inRange && inFilter && inRoleFilter;
+      });
+      var totalR = activeR.reduce(function (sum, r) { return sum + (Number(r.allocation) || 0); }, 0);
+      var resourcesInvolved = {};
+      activeR.forEach(function (r) { resourcesInvolved[(r.name || 'Untitled').trim() || 'Untitled'] = true; });
+      var resourceCount = Object.keys(resourcesInvolved).length;
+
+      var byProject = {};
+      var projOrder = [];
+      activeR.forEach(function (r) {
+        var key = r.project || 'Untitled Project';
+        if (!byProject[key]) { byProject[key] = { name: key, total: 0, entries: [] }; projOrder.push(key); }
+        byProject[key].total += Number(r.allocation) || 0;
+        byProject[key].entries.push(r);
+      });
+      var projectListCount = projOrder.length;
+
+      var filterNoteR = isAllRes ? '' : ' · filtered to ' + panelResourceFilter.length + ' of ' + allResNames.length + ' resources';
+      filterNoteR += isRolesAllR ? '' : ' · filtered to ' + panelRolesFilter.length + ' of ' + uniqueRoles().length + ' roles';
+      panelSummary.textContent = projectListCount
+        ? projectListCount + ' project' + (projectListCount === 1 ? '' : 's') + ' · ' + totalR + '% total allocation' +
+          (resourceCount > 1 ? ' · ' + resourceCount + ' resources' : '') + filterNoteR
+        : 'No projects allocated for the selected week(s)' + filterNoteR;
+
+      panelList.innerHTML = projOrder.map(function (key) {
+        var g = byProject[key];
+        var resNames = [];
+        g.entries.forEach(function (e) {
+          var n = (e.name || 'Untitled').trim() || 'Untitled';
+          if (resNames.indexOf(n) === -1) resNames.push(n);
+        });
+        var subtitle = resNames.join(', ') + (g.entries.length > 1 ? ' · ' + g.entries.length + ' assignments' : '');
+        var rangeText = g.entries.length === 1 ? rangeLabelShortAnchor(g.entries[0].start, g.entries[0].start + g.entries[0].duration) : '';
+        return panelRowHtml(g.name, subtitle, rangeText, g.total);
+      }).join('');
+    }
+  }
+
+  function render() {
+    viewToggleBtns.forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.view === viewMode);
+    });
+    appEl.dataset.viewMode = viewMode;
+    appEl.dataset.density = density;
+    densityToggleBtn.textContent = 'Density:' + (density === 'narrow' ? 'Narrow' : 'Normal');
+    zoomOutBtn.disabled = zoom <= MIN_ZOOM;
+    zoomInBtn.disabled = zoom >= MAX_ZOOM;
+    zoomLevelLabel.textContent = Math.round(zoom * 100) + '%';
+    timelineStartInput.value = isoDateString(timelineStartDate);
+    renderResourceFilterChips();
+    renderProjectFilterChips();
+    renderRolesFilterChips();
+    filtersBlock.style.display = (resourceFilterBar.style.display !== 'none' || projectFilterBar.style.display !== 'none' || rolesFilterBar.style.display !== 'none') ? '' : 'none';
+    filtersBlockBody.style.display = filtersCollapsed ? 'none' : '';
+    filtersCollapseToggle.classList.toggle('collapsed', filtersCollapsed);
+    filtersCollapseToggle.title = (filtersCollapsed ? 'Expand' : 'Collapse') + ' filters';
+
+    grid.style.gridTemplateColumns = LABEL_WIDTH + 'px repeat(' + TOTAL_WEEKS + ', ' + WEEK_WIDTH + 'px)';
+    colResizeHandle.style.left = LABEL_WIDTH + 'px';
+    var bg = gridBackground();
+    grid.style.backgroundImage = bg.backgroundImage;
+    grid.style.backgroundSize = bg.backgroundSize;
+    grid.style.backgroundPosition = bg.backgroundPosition;
+    grid.style.backgroundRepeat = bg.backgroundRepeat;
+
+    var html = '';
+
+    // Month row
+    html += '<div class="cell label-cell header-cell month-label"></div>';
+    monthSegments().forEach(function (seg) {
+      html += '<div class="cell month-cell" style="grid-column: span ' + seg.count + '">' + seg.label + '</div>';
+    });
+
+    // Week row
+    html += '<div class="cell label-cell header-cell timeline-label">Timeline</div>';
+    var tIdx = todayWeekIndex();
+    for (var w = 0; w < TOTAL_WEEKS; w++) {
+      var isToday = (w === tIdx);
+      var isSelected = selectedWeeks.indexOf(w) !== -1;
+      html += '<div class="cell week-cell' + (isToday ? ' today' : '') + (isSelected ? ' selected' : '') + '" data-week-index="' + w + '" title="' + escapeAttr(weekLabelLong(w)) + '">' +
+        weekCellLabel(w) +
+        '</div>';
+    }
+
+    // Rows, grouped by project or resource depending on viewMode
+    var groups = displayGroups();
+    var groupNoun = viewMode === 'resource' ? 'resource' : 'project';
+    var isFiltered = resourceFilter !== null;
+    var isProjectFiltered = projectFilter !== null;
+    var isRolesFiltered = rolesFilter !== null;
+    var rowCounter = 0;
+    var renderedAny = false;
+    groups.forEach(function (group, gi) {
+      var visibleResources = group.resources.filter(function (r) {
+        var nameOk = !isFiltered || resourceFilter.indexOf((r.name || 'Untitled').trim() || 'Untitled') !== -1;
+        var projOk = !isProjectFiltered || projectFilter.indexOf(r.project || 'Untitled Project') !== -1;
+        var roleOk = !isRolesFiltered || rolesFilter.indexOf(roleForResource(r)) !== -1;
+        var inView = !!clipRangeToView(r.start, r.duration);
+        return nameOk && projOk && roleOk && inView;
+      });
+      if (!visibleResources.length) return;
+      renderedAny = true;
+
+      var ranges = projectRangesFor(visibleResources);
+      var colorSlot = (gi % 8) + 1;
+      var groupClass = gi > 0 ? ' group-divider' : '';
+      var isCollapsed = !!collapsedGroups[viewMode][group.name];
+      var renameHint = viewMode === 'resource'
+        ? 'Rename resource (applies to every assignment for this person)'
+        : 'Rename project (applies to every resource in it)';
+
+      html += '<div class="cell label-cell' + groupClass + '" data-project="' + escapeAttr(group.name) + '">' +
+        '<button type="button" class="collapse-toggle' + (isCollapsed ? ' collapsed' : '') + '" data-project="' + escapeAttr(group.name) + '" title="' + (isCollapsed ? 'Expand' : 'Collapse') + ' ' + groupNoun + '">▾</button>' +
+        '<input class="project-label-input" data-role="group-project" data-project="' + escapeAttr(group.name) + '" value="' + escapeAttr(group.name) + '" title="' + renameHint + '" style="color: var(--series-' + colorSlot + ')" />' +
+        '<button type="button" class="add-entry-btn" data-group="' + escapeAttr(group.name) + '" title="' + (viewMode === 'resource' ? 'Add assignment for ' + escapeAttr(group.name) : 'Add resource to ' + escapeAttr(group.name)) + '">+</button>' +
+        (isCollapsed ? '<span class="collapse-count">' + visibleResources.length + '</span>' : '') +
+        '</div>';
+      html += '<div class="cell track-cell project-track' + groupClass + '" data-project="' + escapeAttr(group.name) + '" style="grid-column: span ' + TOTAL_WEEKS + '">';
+      var anyBarVisible = false;
+      ranges.forEach(function (seg) {
+        var clippedRange = clipRangeToView(seg.start, seg.end - seg.start);
+        if (!clippedRange) return;
+        anyBarVisible = true;
+        var pLeft = clippedRange.start * WEEK_WIDTH;
+        var pWidth = (clippedRange.end - clippedRange.start) * WEEK_WIDTH;
+        var weeks = seg.end - seg.start;
+        var pTitle = escapeAttr(group.name + ': ' + rangeLabelShortAnchor(seg.start, seg.end) + ' (' + weeks + 'w)');
+        var pTruncClass = clippedRange.truncatedLeft ? ' bar-truncated-left' : '';
+        html += '<div class="project-bar' + pTruncClass + '" title="' + pTitle + '" style="left:' + pLeft + 'px; width:' + pWidth + 'px; background-image: none; background-color: color-mix(in srgb, var(--series-' + colorSlot + ') 22%, transparent); border-color: var(--series-' + colorSlot + ')"></div>';
+      });
+      if (!anyBarVisible) {
+        html += '<div class="project-empty">' + (viewMode === 'resource' ? 'No assignments for this resource yet' : 'No resources in this project yet') + '</div>';
+      }
+      html += '</div>';
+
+      if (isCollapsed) return;
+
+      visibleResources.forEach(function (r) {
+        var rowClass = (rowCounter % 2 === 1) ? ' row-even' : '';
+        rowCounter++;
+        var entryKey = entryGroupKey(r);
+        var entryRole = viewMode === 'resource' ? 'entry-project' : 'name';
+        var entryValue = viewMode === 'resource' ? r.project : r.name;
+        var entryPlaceholder = viewMode === 'resource' ? 'Project' : 'Name';
+
+        html += '<div class="cell label-cell resource-label' + rowClass + '" data-id="' + r.id + '" data-project="' + escapeAttr(entryKey) + '">' +
+          '<div class="resource-label-top">' +
+            '<input class="name-input" data-id="' + r.id + '" data-role="' + entryRole + '" value="' + escapeAttr(entryValue) + '" placeholder="' + entryPlaceholder + '" />' +
+            '<span class="alloc-wrap">' +
+            '<input class="alloc-input" type="number" min="0" data-id="' + r.id + '" data-role="alloc" value="' + r.allocation + '" />' +
+            '<span class="alloc-unit">%</span>' +
+            '</span>' +
+            '<button class="del-btn" data-id="' + r.id + '" title="Remove ' + (viewMode === 'resource' ? 'assignment' : 'resource') + '">✕</button>' +
+          '</div>' +
+          '</div>';
+
+        var clipped = clipRangeToView(r.start, r.duration);
+        var left = clipped.start * WEEK_WIDTH;
+        var width = (clipped.end - clipped.start) * WEEK_WIDTH;
+        var truncClass = clipped.truncatedLeft ? ' bar-truncated-left' : '';
+        var leftHandle = clipped.truncatedLeft ? '' : '<span class="handle left" data-id="' + r.id + '" data-mode="resize-left"></span>';
+        html += '<div class="cell track-cell' + rowClass + '" data-track-for="' + r.id + '" data-project="' + escapeAttr(entryKey) + '" style="grid-column: span ' + TOTAL_WEEKS + '">' +
+          '<div class="bar' + truncClass + '" data-id="' + r.id + '" style="left:' + left + 'px; width:' + width + 'px; background: var(--series-' + colorSlot + ')" title="' +
+          escapeAttr(barTitle(r)) + '">' +
+          leftHandle +
+          '<span class="badge">' + r.allocation + '%</span>' +
+          '<span class="handle right" data-id="' + r.id + '" data-mode="resize-right"></span>' +
+          '</div>' +
+          '</div>';
+      });
+    });
+
+    grid.innerHTML = html;
+
+    var projectListEl = document.getElementById('projectList');
+    if (projectListEl) {
+      projectListEl.innerHTML = projectGroups().map(function (g) {
+        return '<option value="' + escapeAttr(g.name) + '"></option>';
+      }).join('');
+    }
+
+    var resourceNameListEl = document.getElementById('resourceNameList');
+    if (resourceNameListEl) {
+      resourceNameListEl.innerHTML = uniqueResourceNames().map(function (n) {
+        return '<option value="' + escapeAttr(n) + '"></option>';
+      }).join('');
+    }
+
+    if (!resources.length || !renderedAny) {
+      var note = document.createElement('div');
+      note.className = 'empty-state';
+      note.style.gridColumn = '1 / -1';
+      if (resources.length) {
+        note.textContent = (isFiltered || isProjectFiltered)
+          ? 'No resources match the current filter.'
+          : 'Nothing scheduled in this date range.';
+      } else {
+        var emptyMsg = document.createElement('div');
+        emptyMsg.textContent = 'No resources yet.';
+        var emptyAddBtn = document.createElement('button');
+        emptyAddBtn.type = 'button';
+        emptyAddBtn.className = 'ghost-btn';
+        emptyAddBtn.style.marginTop = '10px';
+        emptyAddBtn.textContent = '+ Add resource';
+        emptyAddBtn.addEventListener('click', function () { openAddModal(); });
+        note.appendChild(emptyMsg);
+        note.appendChild(emptyAddBtn);
+      }
+      grid.appendChild(note);
+    }
+
+    renderPanel();
+  }
+
+  function escapeAttr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  function barTitle(r) {
+    return r.name + ' — ' + r.project + ': ' + rangeLabelShortAnchor(r.start, r.start + r.duration) + ' (' + r.duration + 'w, ' + r.allocation + '%)';
+  }
+
+  // ---- Add resource ----
+  // ---- Add-resource modal ----
+  function openAddModal(prefill) {
+    prefill = prefill || {};
+    projectInput.value = prefill.project || '';
+    nameInput.value = prefill.name || '';
+    allocInput.value = '100';
+    addModalOverlay.style.display = 'flex';
+    var focusTarget = prefill.name ? projectInput : nameInput;
+    focusTarget.focus();
+    if (focusTarget.select) focusTarget.select();
+  }
+
+  function closeAddModal() {
+    addModalOverlay.style.display = 'none';
+  }
+
+  addModalClose.addEventListener('click', closeAddModal);
+  addModalCancel.addEventListener('click', closeAddModal);
+  addModalOverlay.addEventListener('click', function (e) {
+    if (e.target === addModalOverlay) closeAddModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (addModalOverlay.style.display !== 'none') closeAddModal();
+    if (rolesModalOverlay.style.display !== 'none') closeRolesModal();
+    if (cleanupModalOverlay.style.display !== 'none') closeCleanupModal();
+  });
+
+  // ---- Manage Roles modal ----
+  function renderRolesModal() {
+    var names = uniqueResourceNames();
+    var catalog = rolesCatalog;
+    if (!names.length) {
+      rolesResourceList.innerHTML = '<div class="empty-state">No resources yet.</div>';
+      return;
+    }
+    rolesResourceList.innerHTML = names.map(function (name) {
+      var current = resourceRoles[name] || '';
+      var options = '<option value="">— no role —</option>' + catalog.map(function (s) {
+        return '<option value="' + escapeAttr(s) + '"' + (s === current ? ' selected' : '') + '>' + escapeAttr(s) + '</option>';
+      }).join('');
+      return '<div class="roles-resource-row">' +
+        '<span class="roles-resource-name">' + escapeAttr(name) + '</span>' +
+        '<select class="role-select" data-name="' + escapeAttr(name) + '">' + options + '</select>' +
+        '</div>';
+    }).join('');
+  }
+
+  function openRolesModal() {
+    renderRolesModal();
+    newRoleInput.value = '';
+    rolesModalOverlay.style.display = 'flex';
+  }
+
+  function closeRolesModal() {
+    rolesModalOverlay.style.display = 'none';
+  }
+
+  manageRolesBtn.addEventListener('click', openRolesModal);
+  rolesModalClose.addEventListener('click', closeRolesModal);
+  rolesModalOverlay.addEventListener('click', function (e) {
+    if (e.target === rolesModalOverlay) closeRolesModal();
+  });
+
+  function addNewRole() {
+    var val = newRoleInput.value.trim();
+    if (!val || rolesCatalog.indexOf(val) !== -1) { newRoleInput.value = ''; return; }
+    rolesCatalog.push(val);
+    newRoleInput.value = '';
+    renderRolesModal();
+    render();
+    scheduleSave();
+  }
+  addRoleBtn.addEventListener('click', addNewRole);
+  newRoleInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); addNewRole(); }
+  });
+
+  rolesResourceList.addEventListener('change', function (e) {
+    var sel = e.target.closest('.role-select');
+    if (!sel) return;
+    var name = sel.dataset.name;
+    if (sel.value) resourceRoles[name] = sel.value; else delete resourceRoles[name];
+    render();
+    scheduleSave();
+  });
+
+  // ---- Data Clean Up modal ----
+  // An entry has "finished" once its last scheduled week has fully passed relative to
+  // today's real calendar date (not the pannable view start, which never moves finished entries).
+  function entryEndDate(r) {
+    return weekEndDateForAnchor(r.start + r.duration - 1);
+  }
+  function findFinishedEntries() {
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return resources.filter(function (r) { return entryEndDate(r) < today; })
+      .sort(function (a, b) { return entryEndDate(a) - entryEndDate(b); });
+  }
+  var pendingCleanupIds = [];
+
+  function renderCleanupList() {
+    var finished = findFinishedEntries();
+    pendingCleanupIds = finished.map(function (r) { return r.id; });
+    if (!finished.length) {
+      cleanupList.innerHTML = '<div class="empty-state">No finished project or resource tasks to remove.</div>';
+      cleanupOkBtn.disabled = true;
+      return;
+    }
+    cleanupOkBtn.disabled = false;
+    cleanupList.innerHTML = finished.map(function (r) {
+      return '<div class="cleanup-row">' +
+        '<div class="cleanup-row-main">' +
+          '<div class="cleanup-row-project">' + escapeAttr(r.project || 'Untitled Project') + '</div>' +
+          '<div class="cleanup-row-resource">' + escapeAttr(r.name || 'Untitled') + '</div>' +
+        '</div>' +
+        '<div class="cleanup-row-date">' + escapeAttr(fmtLong(entryEndDate(r))) + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function openCleanupModal() {
+    renderCleanupList();
+    cleanupModalOverlay.style.display = 'flex';
+  }
+
+  function closeCleanupModal() {
+    cleanupModalOverlay.style.display = 'none';
+  }
+
+  cleanupBtn.addEventListener('click', openCleanupModal);
+  cleanupModalClose.addEventListener('click', closeCleanupModal);
+  cleanupCancelBtn.addEventListener('click', closeCleanupModal);
+  cleanupModalOverlay.addEventListener('click', function (e) {
+    if (e.target === cleanupModalOverlay) closeCleanupModal();
+  });
+  cleanupOkBtn.addEventListener('click', function () {
+    if (!pendingCleanupIds.length) return;
+    var idSet = pendingCleanupIds;
+    resources = resources.filter(function (r) { return idSet.indexOf(r.id) === -1; });
+    closeCleanupModal();
+    render();
+    scheduleSave();
+    flashStatus('Removed ' + idSet.length + ' finished ' + (idSet.length === 1 ? 'entry' : 'entries'));
+  });
+
+  addForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = nameInput.value.trim();
+    var project = projectInput.value.trim() || 'Untitled Project';
+    var allocation = Number(allocInput.value);
+    if (!name) return;
+    if (!isFinite(allocation) || allocation < 0) allocation = 0;
+    var addOffset = viewOffsetWeeks();
+    var sameProject = resources.filter(function (r) { return r.project === project; });
+    var startView = sameProject.length
+      ? Math.max.apply(null, sameProject.map(function (r) { return r.start + r.duration; })) - addOffset
+      : todayWeekIndex();
+    startView = clamp(startView, 0, TOTAL_WEEKS - DEFAULT_DURATION);
+    addResourceInternal(name, allocation, startView + addOffset, DEFAULT_DURATION, project);
+    closeAddModal();
+    render();
+    scheduleSave();
+  });
+
+  // ---- Delegated events on the grid ----
+  grid.addEventListener('click', function (e) {
+    var toggle = e.target.closest('.collapse-toggle');
+    if (toggle) {
+      var pname = toggle.dataset.project;
+      collapsedGroups[viewMode][pname] = !collapsedGroups[viewMode][pname];
+      render();
+      return;
+    }
+    var del = e.target.closest('.del-btn');
+    if (del) {
+      var id = Number(del.dataset.id);
+      resources = resources.filter(function (r) { return r.id !== id; });
+      render();
+      scheduleSave();
+      return;
+    }
+    var addBtn = e.target.closest('.add-entry-btn');
+    if (addBtn) {
+      var groupName = addBtn.dataset.group || '';
+      openAddModal(viewMode === 'resource' ? { name: groupName } : { project: groupName });
+      return;
+    }
+    var weekCell = e.target.closest('.week-cell');
+    if (weekCell) {
+      var idx = Number(weekCell.dataset.weekIndex);
+      var alreadySelected = selectedWeeks.length === 1 && selectedWeeks[0] === idx;
+      selectedWeeks = alreadySelected ? [] : [idx];
+      render();
+    }
+  });
+
+  panelClose.addEventListener('click', function () {
+    selectedWeeks = [];
+    render();
+  });
+
+  panelFilterChips.addEventListener('click', function (e) {
+    var chip = e.target.closest('.filter-chip');
+    if (!chip) return;
+    if (panelViewMode === 'resource') {
+      var allNames = visibleProjectGroups().map(function (g) { return g.name; });
+      if (chip.dataset.filterAll) {
+        panelFilter = null;
+      } else if (chip.dataset.filterNone) {
+        panelFilter = [];
+      } else {
+        var name = chip.dataset.filterProject;
+        var current = (panelFilter === null) ? allNames.slice() : panelFilter.slice();
+        var idx = current.indexOf(name);
+        if (idx === -1) current.push(name); else current.splice(idx, 1);
+        panelFilter = (current.length === allNames.length) ? null : current;
+      }
+    } else {
+      var allResNames = visibleResourceNames();
+      if (chip.dataset.filterAll) {
+        panelResourceFilter = null;
+      } else if (chip.dataset.filterNone) {
+        panelResourceFilter = [];
+      } else {
+        var rname = chip.dataset.filterResource;
+        var currentR = (panelResourceFilter === null) ? allResNames.slice() : panelResourceFilter.slice();
+        var idxR = currentR.indexOf(rname);
+        if (idxR === -1) currentR.push(rname); else currentR.splice(idxR, 1);
+        panelResourceFilter = (currentR.length === allResNames.length) ? null : currentR;
+      }
+    }
+    renderPanel();
+  });
+
+  panelRolesFilterChips.addEventListener('click', function (e) {
+    var chip = e.target.closest('.filter-chip');
+    if (!chip) return;
+    var allRoleNames = uniqueRoles();
+    if (chip.dataset.filterAll) {
+      panelRolesFilter = null;
+    } else if (chip.dataset.filterNone) {
+      panelRolesFilter = [];
+    } else {
+      var roleName = chip.dataset.filterPanelRole;
+      var currentRoles = (panelRolesFilter === null) ? allRoleNames.slice() : panelRolesFilter.slice();
+      var idxRole = currentRoles.indexOf(roleName);
+      if (idxRole === -1) currentRoles.push(roleName); else currentRoles.splice(idxRole, 1);
+      panelRolesFilter = (currentRoles.length === allRoleNames.length) ? null : currentRoles;
+    }
+    renderPanel();
+  });
+
+  panelViewToggle.addEventListener('click', function (e) {
+    var btn = e.target.closest('.view-toggle-btn');
+    if (!btn || btn.dataset.panelView === panelViewMode) return;
+    panelViewMode = btn.dataset.panelView;
+    renderPanel();
+  });
+
+  resourceFilterChips.addEventListener('click', function (e) {
+    var chip = e.target.closest('.filter-chip');
+    if (!chip) return;
+    var allNames = visibleResourceNames();
+    if (chip.dataset.filterAll) {
+      resourceFilter = null;
+    } else if (chip.dataset.filterNone) {
+      resourceFilter = [];
+    } else {
+      var name = chip.dataset.filterResource;
+      var current = (resourceFilter === null) ? allNames.slice() : resourceFilter.slice();
+      var idx = current.indexOf(name);
+      if (idx === -1) current.push(name); else current.splice(idx, 1);
+      resourceFilter = (current.length === allNames.length) ? null : current;
+    }
+    render();
+  });
+
+  projectFilterChips.addEventListener('click', function (e) {
+    var chip = e.target.closest('.filter-chip');
+    if (!chip) return;
+    var allNames = visibleProjectGroups().map(function (g) { return g.name; });
+    if (chip.dataset.filterAll) {
+      projectFilter = null;
+    } else if (chip.dataset.filterNone) {
+      projectFilter = [];
+    } else {
+      var name = chip.dataset.filterProject;
+      var current = (projectFilter === null) ? allNames.slice() : projectFilter.slice();
+      var idx = current.indexOf(name);
+      if (idx === -1) current.push(name); else current.splice(idx, 1);
+      projectFilter = (current.length === allNames.length) ? null : current;
+    }
+    render();
+  });
+
+  rolesFilterChips.addEventListener('click', function (e) {
+    var chip = e.target.closest('.filter-chip');
+    if (!chip) return;
+    var allNames = uniqueRoles();
+    if (chip.dataset.filterAll) {
+      rolesFilter = null;
+    } else if (chip.dataset.filterNone) {
+      rolesFilter = [];
+    } else {
+      var name = chip.dataset.filterRoles;
+      var current = (rolesFilter === null) ? allNames.slice() : rolesFilter.slice();
+      var idx = current.indexOf(name);
+      if (idx === -1) current.push(name); else current.splice(idx, 1);
+      rolesFilter = (current.length === allNames.length) ? null : current;
+    }
+    render();
+  });
+
+  grid.addEventListener('input', function (e) {
+    var el = e.target;
+    if (el.dataset && el.dataset.role === 'name') {
+      var r = resources.find(function (r) { return r.id === Number(el.dataset.id); });
+      if (r) {
+        r.name = el.value;
+        var bar = grid.querySelector('.bar[data-id="' + r.id + '"]');
+        if (bar) bar.title = barTitle(r);
+      }
+    } else if (el.dataset && el.dataset.role === 'entry-project') {
+      var r3 = resources.find(function (r) { return r.id === Number(el.dataset.id); });
+      if (r3) {
+        r3.project = el.value;
+        var bar3 = grid.querySelector('.bar[data-id="' + r3.id + '"]');
+        if (bar3) bar3.title = barTitle(r3);
+      }
+    } else if (el.dataset && el.dataset.role === 'alloc') {
+      var r2 = resources.find(function (r) { return r.id === Number(el.dataset.id); });
+      if (r2) {
+        var v = Number(el.value);
+        r2.allocation = isFinite(v) && v >= 0 ? v : 0;
+        var badge = grid.querySelector('.bar[data-id="' + r2.id + '"] .badge');
+        if (badge) badge.textContent = r2.allocation + '%';
+        var bar2 = grid.querySelector('.bar[data-id="' + r2.id + '"]');
+        if (bar2) bar2.title = barTitle(r2);
+      }
+    }
+    renderPanel();
+    scheduleSave();
+  });
+
+  grid.addEventListener('change', function (e) {
+    var el = e.target;
+    if (el.dataset && el.dataset.role === 'group-project') {
+      var oldName = el.dataset.project;
+      var newName = el.value.trim() || (viewMode === 'resource' ? 'Untitled' : 'Untitled Project');
+      if (newName !== oldName) {
+        resources.forEach(function (r) {
+          if (viewMode === 'resource') {
+            if (keyForResource(r) === oldName) r.name = newName;
+          } else if (r.project === oldName) {
+            r.project = newName;
+          }
+        });
+        if (viewMode === 'resource' && Object.prototype.hasOwnProperty.call(resourceRoles, oldName)) {
+          resourceRoles[newName] = resourceRoles[oldName];
+          delete resourceRoles[oldName];
+        }
+      }
+      render();
+      scheduleSave();
+    } else if (el.dataset && el.dataset.role === 'entry-project') {
+      var r4 = resources.find(function (r) { return r.id === Number(el.dataset.id); });
+      if (r4) {
+        r4.project = r4.project.trim() || 'Untitled Project';
+      }
+      render();
+      scheduleSave();
+    }
+  });
+
+  grid.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
+
+  // ---- Drag / resize (whole-week increments) ----
+  grid.addEventListener('pointerdown', function (e) {
+    var handle = e.target.closest('.handle');
+    var barEl = e.target.closest('.bar');
+    if (!barEl) return;
+    var id = Number(barEl.dataset.id);
+    var resource = resources.find(function (r) { return r.id === id; });
+    if (!resource) return;
+
+    var mode = handle ? handle.dataset.mode : 'move';
+    var startX = e.clientX;
+    var dragOffset = viewOffsetWeeks(); // constant for the duration of this drag
+    var origStart = resource.start; // anchor-relative (stored)
+    var origStartView = origStart - dragOffset; // view-relative (on-screen column)
+    var origDuration = resource.duration;
+    var origGroupKey = entryGroupKey(resource);
+    var hoverGroupKey = origGroupKey;
+    var hoveredResourceId = null;
+    var hoveredInsertAfter = false;
+    var badge = barEl.querySelector('.badge');
+    var dragGroups = displayGroups();
+    var groupIndex = dragGroups.findIndex(function (g) { return g.resources.indexOf(resource) !== -1; });
+
+    e.preventDefault();
+    try { barEl.setPointerCapture(e.pointerId); } catch (err) {}
+    dragTip.style.display = 'block';
+
+    function setDropHighlight(name) {
+      var prev = grid.querySelectorAll('.drop-target');
+      for (var i = 0; i < prev.length; i++) prev[i].classList.remove('drop-target');
+      if (!name) return;
+      var esc = (window.CSS && CSS.escape) ? CSS.escape(name) : name.replace(/"/g, '\\"');
+      var matches = grid.querySelectorAll('[data-project="' + esc + '"]');
+      for (var j = 0; j < matches.length; j++) matches[j].classList.add('drop-target');
+    }
+
+    function setReorderHighlight(targetId, insertAfter) {
+      var prev = grid.querySelectorAll('.reorder-target-before, .reorder-target-after');
+      for (var i = 0; i < prev.length; i++) prev[i].classList.remove('reorder-target-before', 'reorder-target-after');
+      if (!targetId) return;
+      var cls = insertAfter ? 'reorder-target-after' : 'reorder-target-before';
+      var matches = grid.querySelectorAll('.label-cell[data-id="' + targetId + '"], .track-cell[data-track-for="' + targetId + '"]');
+      for (var j = 0; j < matches.length; j++) matches[j].classList.add(cls);
+    }
+
+    function applyVisual() {
+      var liveClipped = clipRangeToView(resource.start, resource.duration);
+      var left = (liveClipped ? liveClipped.start : (resource.start - dragOffset)) * WEEK_WIDTH;
+      var width = (liveClipped ? (liveClipped.end - liveClipped.start) : resource.duration) * WEEK_WIDTH;
+      barEl.style.left = left + 'px';
+      barEl.style.width = width + 'px';
+      barEl.classList.toggle('bar-truncated-left', !!(liveClipped && liveClipped.truncatedLeft));
+      if (badge) badge.style.display = '';
+
+      updateProjectBarVisual();
+      renderPanel();
+
+      dragTip.textContent = rangeLabelShortAnchor(resource.start, resource.start + resource.duration) + ' (' + resource.duration + 'w)' +
+        (hoverGroupKey !== origGroupKey ? ' → ' + hoverGroupKey : '');
+      dragTip.style.left = e.clientX + 'px';
+      dragTip.style.top = e.clientY + 'px';
+    }
+
+    function updateProjectBarVisual() {
+      var group = dragGroups[groupIndex];
+      if (!group) return;
+      var stillVisible = group.resources.filter(function (r) { return !!clipRangeToView(r.start, r.duration); });
+      var ranges = projectRangesFor(stillVisible);
+      var esc = (window.CSS && CSS.escape) ? CSS.escape(group.name) : group.name.replace(/"/g, '\\"');
+      var groupTrackEl = grid.querySelector('.project-track[data-project="' + esc + '"]');
+      if (!groupTrackEl) return;
+      var colorSlot = (groupIndex % 8) + 1;
+      var barsHtml = '';
+      ranges.forEach(function (seg) {
+        var clippedRange = clipRangeToView(seg.start, seg.end - seg.start);
+        if (!clippedRange) return;
+        var pLeft = clippedRange.start * WEEK_WIDTH;
+        var pWidth = (clippedRange.end - clippedRange.start) * WEEK_WIDTH;
+        var pTitle = escapeAttr(group.name + ': ' + rangeLabelShortAnchor(seg.start, seg.end) + ' (' + (seg.end - seg.start) + 'w)');
+        var pTruncClass = clippedRange.truncatedLeft ? ' bar-truncated-left' : '';
+        barsHtml += '<div class="project-bar' + pTruncClass + '" title="' + pTitle + '" style="left:' + pLeft + 'px; width:' + pWidth + 'px; background-image: none; background-color: color-mix(in srgb, var(--series-' + colorSlot + ') 22%, transparent); border-color: var(--series-' + colorSlot + ')"></div>';
+      });
+      groupTrackEl.innerHTML = barsHtml || ('<div class="project-empty">' + (viewMode === 'resource' ? 'No assignments for this resource yet' : 'No resources in this project yet') + '</div>');
+    }
+
+    function onMove(ev) {
+      var dx = ev.clientX - startX;
+      var dWeeks = Math.round(dx / WEEK_WIDTH);
+      if (mode === 'move') {
+        // If the bar was already truncated (true start off-screen left), don't let a drag push
+        // it further left than that — its real edge isn't visible/grabbable to aim precisely,
+        // and a plain click-without-moving must not snap the true start forward to column 0.
+        var moveLowerBound = Math.min(0, origStartView);
+        var newStartView0 = clamp(origStartView + dWeeks, moveLowerBound, TOTAL_WEEKS - resource.duration);
+        resource.start = newStartView0 + dragOffset;
+
+        var overEl = document.elementFromPoint(ev.clientX, ev.clientY);
+        var rowEl = overEl ? overEl.closest('[data-project]') : null;
+        var overGroupKey = rowEl ? rowEl.dataset.project : null;
+        hoverGroupKey = overGroupKey || origGroupKey;
+        setDropHighlight(hoverGroupKey !== origGroupKey ? hoverGroupKey : null);
+
+        var overResourceId = rowEl ? Number(rowEl.dataset.id || rowEl.dataset.trackFor) : NaN;
+        if (hoverGroupKey === origGroupKey && overResourceId && overResourceId !== resource.id) {
+          var rect = rowEl.getBoundingClientRect();
+          hoveredResourceId = overResourceId;
+          hoveredInsertAfter = ev.clientY > (rect.top + rect.height / 2);
+          setReorderHighlight(hoveredResourceId, hoveredInsertAfter);
+        } else {
+          hoveredResourceId = null;
+          setReorderHighlight(null);
+        }
+      } else if (mode === 'resize-left') {
+        var newStartView = clamp(origStartView + dWeeks, 0, origStartView + origDuration - 1);
+        resource.duration = origDuration + (origStartView - newStartView);
+        resource.start = newStartView + dragOffset;
+      } else if (mode === 'resize-right') {
+        var newDuration = clamp(origDuration + dWeeks, 1, TOTAL_WEEKS - origStartView);
+        resource.duration = newDuration;
+      }
+      e = ev;
+      applyVisual();
+    }
+
+    function onUp() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      dragTip.style.display = 'none';
+      setDropHighlight(null);
+      setReorderHighlight(null);
+      if (mode === 'move') {
+        if (hoverGroupKey !== origGroupKey) {
+          if (viewMode === 'resource') {
+            var movedLabel = resource.project || 'assignment';
+            resource.name = hoverGroupKey;
+            flashStatus('Moved ' + movedLabel + ' to ' + hoverGroupKey);
+          } else {
+            resource.project = hoverGroupKey;
+            flashStatus('Moved ' + (resource.name || 'resource') + ' to ' + hoverGroupKey);
+          }
+        } else if (hoveredResourceId) {
+          reorderResource(resource.id, hoveredResourceId, hoveredInsertAfter);
+        }
+      }
+      render();
+      scheduleSave();
+    }
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+
+  // ---- Label column resize ----
+  colResizeHandle.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    var startX = e.clientX;
+    var startWidth = LABEL_WIDTH;
+    colResizeHandle.classList.add('dragging');
+    try { colResizeHandle.setPointerCapture(e.pointerId); } catch (err) {}
+
+    function onMove(ev) {
+      LABEL_WIDTH = clamp(startWidth + (ev.clientX - startX), MIN_LABEL_WIDTH, MAX_LABEL_WIDTH);
+      colResizeHandle.style.left = LABEL_WIDTH + 'px';
+      grid.style.gridTemplateColumns = LABEL_WIDTH + 'px repeat(' + TOTAL_WEEKS + ', ' + WEEK_WIDTH + 'px)';
+      var bg = gridBackground();
+      grid.style.backgroundImage = bg.backgroundImage;
+      grid.style.backgroundSize = bg.backgroundSize;
+      grid.style.backgroundPosition = bg.backgroundPosition;
+      grid.style.backgroundRepeat = bg.backgroundRepeat;
+    }
+    function onUp() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      colResizeHandle.classList.remove('dragging');
+      try { localStorage.setItem('gantt-label-width', String(LABEL_WIDTH)); } catch (err) {}
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+
+  // ---- Linked file controls ----
+  function handleOpenFile() {
+    window.showOpenFilePicker({
+      types: [{ description: 'Gantt JSON', accept: { 'application/json': ['.json'] } }],
+      multiple: false
+    }).then(function (handles) {
+      return loadFromFileHandle(handles[0]).then(function () {
+        pendingReconnectHandle = null;
+        updateFileUi();
+        return idbSet(IDB_HANDLE_KEY, fileHandle);
+      });
+    }).catch(function (err) {
+      if (err && err.name === 'AbortError') return;
+      flashStatus('Could not open that file as a Gantt data file');
+    });
+  }
+
+  function handleSaveAsNewFile() {
+    window.showSaveFilePicker({
+      suggestedName: fileName || 'gantt-data.json',
+      types: [{ description: 'Gantt JSON', accept: { 'application/json': ['.json'] } }]
+    }).then(function (handle) {
+      return writeStateToFile(handle, currentStateData()).then(function () {
+        fileHandle = handle;
+        fileName = handle.name;
+        pendingReconnectHandle = null;
+        updateFileUi();
+        updateLockState();
+        flashStatus('Linked to ' + fileName + ' — saved');
+        return idbSet(IDB_HANDLE_KEY, fileHandle);
+      });
+    }).catch(function (err) {
+      if (err && err.name === 'AbortError') return;
+      flashStatus('Could not save file');
+    });
+  }
+
+  viewToggle.addEventListener('click', function (e) {
+    var btn = e.target.closest('.view-toggle-btn');
+    if (!btn || btn.dataset.view === viewMode) return;
+    viewMode = btn.dataset.view;
+    try { localStorage.setItem('gantt-view-mode', viewMode); } catch (err) {}
+    render();
+  });
+
+  densityToggleBtn.addEventListener('click', function () {
+    density = density === 'narrow' ? 'normal' : 'narrow';
+    try { localStorage.setItem('gantt-density', density); } catch (err) {}
+    render();
+  });
+
+  filtersCollapseToggle.addEventListener('click', function () {
+    filtersCollapsed = !filtersCollapsed;
+    try { localStorage.setItem('gantt-filters-collapsed', filtersCollapsed ? '1' : '0'); } catch (err) {}
+    render();
+  });
+
+  panelFilterCollapseToggle.addEventListener('click', function () {
+    panelFiltersCollapsed = !panelFiltersCollapsed;
+    try { localStorage.setItem('gantt-panel-filters-collapsed', panelFiltersCollapsed ? '1' : '0'); } catch (err) {}
+    renderPanel();
+  });
+
+  panelRolesFilterCollapseToggle.addEventListener('click', function () {
+    panelRolesFiltersCollapsed = !panelRolesFiltersCollapsed;
+    try { localStorage.setItem('gantt-panel-roles-filters-collapsed', panelRolesFiltersCollapsed ? '1' : '0'); } catch (err) {}
+    renderPanel();
+  });
+
+  var ZOOM_STEP = 0.1;
+  function setZoom(newZoom) {
+    zoom = Math.round(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom)) * 100) / 100;
+    WEEK_WIDTH = BASE_WEEK_WIDTH * zoom;
+    try { localStorage.setItem('gantt-zoom', zoom); } catch (err) {}
+    render();
+  }
+
+  zoomOutBtn.addEventListener('click', function () {
+    setZoom(zoom - ZOOM_STEP);
+  });
+
+  zoomInBtn.addEventListener('click', function () {
+    setZoom(zoom + ZOOM_STEP);
+  });
+
+  sortAzBtn.addEventListener('click', function () {
+    sortGroupsAlphabetically();
+    render();
+    scheduleSave();
+  });
+
+  // Changing the start date only pans the visible window — resource start/duration are stored
+  // relative to the fixed DATA_EPOCH, so their real dates never move. Bars that finish before
+  // the new start are hidden; bars already in progress show only their remaining time (see
+  // clipRangeToView), all handled purely at render time.
+  timelineStartInput.addEventListener('change', function () {
+    var picked = parseIsoDate(timelineStartInput.value);
+    if (!picked) { timelineStartInput.value = isoDateString(timelineStartDate); return; }
+    timelineStartDate = mondayOnOrBefore(picked);
+    render();
+    scheduleSave();
+  });
+
+  openFileBtn.addEventListener('click', handleOpenFile);
+  saveAsBtn.addEventListener('click', handleSaveAsNewFile);
+  gateOpenBtn.addEventListener('click', handleOpenFile);
+  gateCreateBtn.addEventListener('click', handleSaveAsNewFile);
+
+  reconnectBtn.addEventListener('click', function () {
+    var handle = pendingReconnectHandle;
+    if (!handle) return;
+    handle.requestPermission({ mode: 'readwrite' }).then(function (perm) {
+      if (perm !== 'granted') throw new Error('denied');
+      return loadFromFileHandle(handle);
+    }).then(function () {
+      pendingReconnectHandle = null;
+      updateFileUi();
+    }).catch(function () {
+      flashStatus('Could not reconnect — use Open Data File to pick it again');
+      pendingReconnectHandle = null;
+      idbDel(IDB_HANDLE_KEY);
+      updateFileUi();
+      updateLockState();
+    });
+  });
+
+  // ---- Export ----
+  exportBtn.addEventListener('click', function () {
+    var data = {
+      version: 3, unit: 'week', timelineStart: isoDateString(timelineStartDate), resources: resources, nextId: nextId,
+      rolesCatalog: rolesCatalog, resourceRoles: resourceRoles,
+      exportedAt: new Date().toISOString()
+    };
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'gantt-project.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    flashStatus('Exported gantt-project.json');
+  });
+
+  // ---- Export PNG (draws the currently visible chart onto an offscreen canvas) ----
+  function cssVar(name) {
+    return getComputedStyle(appEl).getPropertyValue(name).trim();
+  }
+
+  function hexToRgb(hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(function (c) { return c + c; }).join('');
+    var num = parseInt(hex, 16);
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+  }
+
+  function blendHex(hexA, hexB, amountA) {
+    var a = hexToRgb(hexA), b = hexToRgb(hexB);
+    var r = Math.round(a.r * amountA + b.r * (1 - amountA));
+    var g = Math.round(a.g * amountA + b.g * (1 - amountA));
+    var bl = Math.round(a.b * amountA + b.b * (1 - amountA));
+    return 'rgb(' + r + ',' + g + ',' + bl + ')';
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function truncateText(ctx, text, maxWidth) {
+    text = String(text);
+    if (ctx.measureText(text).width <= maxWidth) return text;
+    while (text.length > 1 && ctx.measureText(text + '…').width > maxWidth) {
+      text = text.slice(0, -1);
+    }
+    return text + '…';
+  }
+
+  // Mirrors render()'s grouping/filtering logic to decide what the export should include.
+  function visibleExportRows() {
+    var groups = displayGroups();
+    var isFiltered = resourceFilter !== null;
+    var isProjectFiltered = projectFilter !== null;
+    var isRolesFiltered = rolesFilter !== null;
+    var rows = [];
+    groups.forEach(function (group, gi) {
+      var visibleResources = group.resources.filter(function (r) {
+        var nameOk = !isFiltered || resourceFilter.indexOf((r.name || 'Untitled').trim() || 'Untitled') !== -1;
+        var projOk = !isProjectFiltered || projectFilter.indexOf(r.project || 'Untitled Project') !== -1;
+        var roleOk = !isRolesFiltered || rolesFilter.indexOf(roleForResource(r)) !== -1;
+        var inView = !!clipRangeToView(r.start, r.duration);
+        return nameOk && projOk && roleOk && inView;
+      });
+      if (!visibleResources.length) return;
+      var colorSlot = (gi % 8) + 1;
+      var ranges = projectRangesFor(visibleResources);
+      rows.push({ type: 'group', name: group.name, ranges: ranges, colorSlot: colorSlot });
+      if (!collapsedGroups[viewMode][group.name]) {
+        visibleResources.forEach(function (r) {
+          rows.push({ type: 'entry', r: r, colorSlot: colorSlot });
+        });
+      }
+    });
+    return rows;
+  }
+
+  function renderChartCanvas() {
+    var rows = visibleExportRows();
+    if (!rows.length) return null;
+
+    var isNarrow = density === 'narrow';
+    var MONTH_H = 24, WEEK_H = 30;
+    var GROUP_H = isNarrow ? 32 : 46, ENTRY_H = isNarrow ? 34 : 54;
+    var headerH = MONTH_H + WEEK_H;
+    var bodyH = rows.reduce(function (sum, row) { return sum + (row.type === 'group' ? GROUP_H : ENTRY_H); }, 0);
+    var width = LABEL_WIDTH + TOTAL_WEEKS * WEEK_WIDTH;
+    var height = headerH + bodyH;
+    var scale = 2;
+
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(width * scale);
+    canvas.height = Math.ceil(height * scale);
+    var ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    var surface = cssVar('--surface-1');
+    var textPrimary = cssVar('--text-primary');
+    var textSecondary = cssVar('--text-secondary');
+    var textMuted = cssVar('--text-muted');
+    var gridline = cssVar('--gridline');
+    var border = cssVar('--border');
+    var today = cssVar('--today-marker');
+    var seriesColors = [1, 2, 3, 4, 5, 6, 7, 8].map(function (n) { return cssVar('--series-' + n); });
+    var fontFamily = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+
+    ctx.fillStyle = surface;
+    ctx.fillRect(0, 0, width, height);
+    ctx.textBaseline = 'middle';
+
+    // Month row
+    ctx.font = '600 11px ' + fontFamily;
+    var mx = LABEL_WIDTH;
+    monthSegments().forEach(function (seg) {
+      var segW = seg.count * WEEK_WIDTH;
+      ctx.strokeStyle = gridline;
+      ctx.beginPath(); ctx.moveTo(mx + 0.5, 0); ctx.lineTo(mx + 0.5, MONTH_H); ctx.stroke();
+      ctx.fillStyle = textSecondary;
+      ctx.fillText(seg.label, mx + 6, MONTH_H - 8);
+      mx += segW;
+    });
+    ctx.strokeStyle = gridline;
+    ctx.beginPath(); ctx.moveTo(0, MONTH_H + 0.5); ctx.lineTo(width, MONTH_H + 0.5); ctx.stroke();
+
+    // Week row: "Timeline" label tinted with the current view's marker color, plus today highlight
+    ctx.fillStyle = blendHex(today, surface, 0.18);
+    ctx.fillRect(0, MONTH_H, LABEL_WIDTH, WEEK_H);
+    ctx.fillStyle = today;
+    ctx.font = 'bold 13px ' + fontFamily;
+    ctx.fillText('Timeline', 10, MONTH_H + WEEK_H / 2);
+
+    var tIdx = todayWeekIndex();
+    ctx.font = '600 11px ' + fontFamily;
+    for (var w = 0; w < TOTAL_WEEKS; w++) {
+      var wx = LABEL_WIDTH + w * WEEK_WIDTH;
+      if (w === tIdx) {
+        ctx.fillStyle = blendHex(today, surface, 0.14);
+        ctx.fillRect(wx, MONTH_H, WEEK_WIDTH, WEEK_H);
+      }
+      ctx.strokeStyle = gridline;
+      ctx.beginPath(); ctx.moveTo(wx + 0.5, MONTH_H); ctx.lineTo(wx + 0.5, MONTH_H + WEEK_H); ctx.stroke();
+      ctx.fillStyle = (w === tIdx) ? today : textSecondary;
+      ctx.fillText(weekCellLabel(w), wx + 6, MONTH_H + WEEK_H / 2);
+    }
+    ctx.strokeStyle = gridline;
+    ctx.beginPath(); ctx.moveTo(0, headerH + 0.5); ctx.lineTo(width, headerH + 0.5); ctx.stroke();
+
+    // Rows
+    var y = headerH;
+    rows.forEach(function (row) {
+      var h = row.type === 'group' ? GROUP_H : ENTRY_H;
+      var color = seriesColors[(row.colorSlot - 1) % 8];
+
+      if (row.type === 'group') {
+        ctx.font = '600 13px ' + fontFamily;
+        ctx.fillStyle = color;
+        ctx.fillText(truncateText(ctx, row.name, LABEL_WIDTH - 24), 12, y + h / 2);
+      } else {
+        var r = row.r;
+        var labelText = viewMode === 'resource' ? (r.project || 'Untitled Project') : (r.name || 'Untitled');
+        ctx.font = '13px ' + fontFamily;
+        ctx.fillStyle = textPrimary;
+        ctx.fillText(truncateText(ctx, labelText, LABEL_WIDTH - 90), 12, y + h / 2);
+        ctx.font = '600 12px ' + fontFamily;
+        ctx.fillStyle = textMuted;
+        ctx.textAlign = 'right';
+        ctx.fillText(r.allocation + '%', LABEL_WIDTH - 16, y + h / 2);
+        ctx.textAlign = 'left';
+      }
+
+      ctx.strokeStyle = border;
+      ctx.beginPath(); ctx.moveTo(LABEL_WIDTH + 0.5, y); ctx.lineTo(LABEL_WIDTH + 0.5, y + h); ctx.stroke();
+
+      ctx.strokeStyle = gridline;
+      for (var wcol = 0; wcol <= TOTAL_WEEKS; wcol++) {
+        var gx = LABEL_WIDTH + wcol * WEEK_WIDTH;
+        ctx.beginPath(); ctx.moveTo(gx + 0.5, y); ctx.lineTo(gx + 0.5, y + h); ctx.stroke();
+      }
+
+      if (row.type === 'group') {
+        row.ranges.forEach(function (seg) {
+          var gClipped = clipRangeToView(seg.start, seg.end - seg.start);
+          if (!gClipped) return;
+          var gx0 = LABEL_WIDTH + gClipped.start * WEEK_WIDTH;
+          var gw = (gClipped.end - gClipped.start) * WEEK_WIDTH;
+          ctx.fillStyle = blendHex(color, surface, 0.28);
+          ctx.strokeStyle = color;
+          roundRectPath(ctx, gx0 + 2, y + h / 2 - 10, Math.max(gw - 4, 1), 20, 6);
+          ctx.fill(); ctx.stroke();
+        });
+      } else {
+        var rClipped = clipRangeToView(row.r.start, row.r.duration);
+        var bx = LABEL_WIDTH + rClipped.start * WEEK_WIDTH;
+        var bw = (rClipped.end - rClipped.start) * WEEK_WIDTH;
+        ctx.fillStyle = color;
+        roundRectPath(ctx, bx + 3, y + h / 2 - 13, Math.max(bw - 6, 1), 26, 6);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 11px ' + fontFamily;
+        ctx.textAlign = 'left';
+        ctx.fillText(row.r.allocation + '%', bx + 11, y + h / 2);
+      }
+
+      ctx.strokeStyle = gridline;
+      ctx.beginPath(); ctx.moveTo(0, y + h + 0.5); ctx.lineTo(width, y + h + 0.5); ctx.stroke();
+
+      y += h;
+    });
+
+    ctx.strokeStyle = border;
+    ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+
+    return canvas;
+  }
+
+  function downloadDataUrl(dataUrl, filename) {
+    var a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
+  }
+
+  exportPngBtn.addEventListener('click', function () {
+    var canvas = renderChartCanvas();
+    if (!canvas) { flashStatus('Nothing to export yet'); return; }
+    downloadDataUrl(canvas.toDataURL('image/png'), 'gantt-chart.png');
+    flashStatus('Exported gantt-chart.png');
+  });
+
+  // ---- Export PDF (uses the browser's native print-to-PDF via a print stylesheet) ----
+  exportPdfBtn.addEventListener('click', function () {
+    var ganttCardEl = document.querySelector('.gantt-card');
+    var contentWidth = LABEL_WIDTH + TOTAL_WEEKS * WEEK_WIDTH;
+    var printableWidthPx = 1050; // approx landscape page width minus margins at 96dpi
+    var zoomLevel = Math.min(1, printableWidthPx / contentWidth);
+    ganttCardEl.style.zoom = zoomLevel;
+    function resetZoom() {
+      ganttCardEl.style.zoom = '';
+      window.removeEventListener('afterprint', resetZoom);
+    }
+    window.addEventListener('afterprint', resetZoom);
+    window.print();
+  });
+
+  // ---- Init ----
+  function init() {
+    if (!fsApiSupported) {
+      render();
+      updateFileUi();
+      updateLockState();
+      flashStatus('This browser can\'t link a data file — use Export JSON to save changes');
+      return;
+    }
+    idbGet(IDB_HANDLE_KEY).then(function (handle) {
+      if (!handle) {
+        render();
+        updateFileUi();
+        updateLockState();
+        return;
+      }
+      return handle.queryPermission({ mode: 'readwrite' }).then(function (perm) {
+        if (perm === 'granted') return loadFromFileHandle(handle).then(updateLockState);
+        pendingReconnectHandle = handle;
+        pendingReconnectFileName = handle.name;
+        render();
+        updateFileUi();
+        updateLockState();
+        flashStatus('Data file disconnected — click Reconnect file to resume');
+      });
+    }).catch(function () {
+      render();
+      updateFileUi();
+      updateLockState();
+    });
+  }
+
+  init();
+})();
+</script>
