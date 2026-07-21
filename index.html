@@ -532,7 +532,10 @@
             <button type="button" class="view-toggle-btn" data-view="project">Projects</button>
             <button type="button" class="view-toggle-btn" data-view="resource">Resources</button>
           </div>
-          <button type="button" class="ghost-btn" id="sortAzBtn" title="Sort project or resource rows alphabethical, then by date">Sort View</button>
+          <div class="view-toggle" id="sortToggle" role="group" aria-label="Sort chart">
+            <button type="button" class="view-toggle-btn" id="sortAzBtn" title="Sort project or resource rows alphabethical, then by date">Sort A-Z</button>
+            <button type="button" class="view-toggle-btn" id="sortDateBtn" title="Sort by start date, then end date, then alphabetically">Sort Date</button>
+          </div>
           <button type="button" class="ghost-btn" id="densityToggleBtn">Density:Normal</button>
           <div class="zoom-control">
             <button type="button" id="zoomOutBtn" title="Zoom out (narrower weeks)">−</button>
@@ -745,6 +748,7 @@
   var zoomInBtn = document.getElementById('zoomInBtn');
   var zoomLevelLabel = document.getElementById('zoomLevelLabel');
   var sortAzBtn = document.getElementById('sortAzBtn');
+  var sortDateBtn = document.getElementById('sortDateBtn');
   var manageRolesBtn = document.getElementById('manageRolesBtn');
   var rolesModalOverlay = document.getElementById('rolesModalOverlay');
   var rolesModalClose = document.getElementById('rolesModalClose');
@@ -1032,6 +1036,34 @@
   function sortGroupsAlphabetically() {
     var groups = displayGroups();
     groups.sort(function (a, b) {
+      return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+    });
+    groups.forEach(function (g) {
+      g.resources.sort(function (a, b) {
+        if (a.start !== b.start) return a.start - b.start;
+        var an = (viewMode === 'resource' ? a.project : a.name) || '';
+        var bn = (viewMode === 'resource' ? b.project : b.name) || '';
+        return an.localeCompare(bn, undefined, { sensitivity: 'base' });
+      });
+    });
+    var sorted = [];
+    groups.forEach(function (g) { sorted = sorted.concat(g.resources); });
+    resources = sorted;
+  }
+
+  // Sorts groups (projects in project view, resources in resource view) by their earliest
+  // start date, then their latest end date, then alphabetically — i.e. the group's own overall
+  // span, not any single row within it. Rows within each group keep the same start/alpha order
+  // as sortGroupsAlphabetically() above.
+  function sortGroupsByDate() {
+    var groups = displayGroups();
+    groups.forEach(function (g) {
+      g.spanStart = Math.min.apply(null, g.resources.map(function (r) { return r.start; }));
+      g.spanEnd = Math.max.apply(null, g.resources.map(function (r) { return r.start + r.duration; }));
+    });
+    groups.sort(function (a, b) {
+      if (a.spanStart !== b.spanStart) return a.spanStart - b.spanStart;
+      if (a.spanEnd !== b.spanEnd) return a.spanEnd - b.spanEnd;
       return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
     });
     groups.forEach(function (g) {
@@ -2242,6 +2274,12 @@
 
   sortAzBtn.addEventListener('click', function () {
     sortGroupsAlphabetically();
+    render();
+    scheduleSave();
+  });
+
+  sortDateBtn.addEventListener('click', function () {
+    sortGroupsByDate();
     render();
     scheduleSave();
   });
