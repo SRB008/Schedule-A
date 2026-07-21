@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Schedule A</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <style>
@@ -333,6 +334,11 @@
     overflow: hidden;
   }
   .gantt-scroll { overflow-x: auto; }
+  @media screen {
+    /* Bounded height turns this into its own scroll container, which is what lets the
+       sticky header rows below stay put while resource rows scroll past underneath. */
+    .gantt-scroll { overflow-y: auto; max-height: var(--gantt-scroll-max-height, 70vh); }
+  }
   .gantt-grid { display: grid; }
 
   .col-resize-handle {
@@ -356,15 +362,17 @@
     padding: 0 10px;
     min-height: var(--row-h);
   }
-  .label-cell.header-cell { min-height: 30px; }
-  .label-cell.month-label { min-height: 24px; }
+  .label-cell.header-cell { min-height: 30px; z-index: 5; }
+  .label-cell.month-label { min-height: 24px; top: 0; }
   .label-cell.timeline-label {
+    top: var(--header-row1-height, 24px);
     background: color-mix(in srgb, var(--today-marker) 18%, var(--surface-1));
     color: var(--today-marker);
     font-weight: 700;
   }
 
   .month-cell {
+    position: sticky; top: 0; z-index: 4;
     font-size: 11px; color: var(--text-secondary); font-weight: 600;
     padding: 5px 6px;
     border-bottom: 1px solid var(--gridline);
@@ -373,6 +381,7 @@
     display: flex; align-items: center;
   }
   .week-cell {
+    position: sticky; top: var(--header-row1-height, 24px); z-index: 4;
     display: flex; align-items: center; justify-content: flex-start;
     padding: 4px 6px;
     font-size: 11px; font-weight: 600; color: var(--text-secondary);
@@ -531,10 +540,9 @@
             <button type="button" id="zoomInBtn" title="Zoom in (wider weeks)">+</button>
           </div>
           <button type="button" class="ghost-btn" id="manageRolesBtn">Assign Role</button>
-          <button type="button" class="ghost-btn" id="openFileBtn">Open Data File</button>
+          <button type="button" class="ghost-btn" id="openFileBtn">Import Backup</button>
+          <input type="file" id="importFileInput" accept="application/json" style="display:none" />
           <button type="button" class="ghost-btn" id="cleanupBtn">Data Clean Up</button>
-          <button type="button" class="ghost-btn" id="saveAsBtn" style="display:none">Save As…</button>
-          <button type="button" class="ghost-btn warn" id="reconnectBtn" style="display:none">Reconnect file</button>
           <button type="button" class="ghost-btn" id="exportBtn">Back Up Data</button>
           <button type="button" class="ghost-btn" id="exportPngBtn" style="display:none">Export PNG</button>
           <button type="button" class="ghost-btn" id="exportPdfBtn" style="display:none">Export PDF</button>
@@ -572,10 +580,9 @@
 
         <div class="lock-overlay" id="lockOverlay" style="display:none">
           <div class="lock-overlay-inner">
-            <p>No data file is linked. Open an existing Gantt JSON file or create a new one — nothing is saved until you do.</p>
-            <div class="lock-overlay-actions">
-              <button type="button" class="ghost-btn" id="gateOpenBtn">Open Data File…</button>
-              <button type="button" class="ghost-btn" id="gateCreateBtn">Create New File…</button>
+            <p id="lockOverlayText">Loading schedule…</p>
+            <div class="lock-overlay-actions" id="lockOverlayActions" style="display:none">
+              <button type="button" class="ghost-btn" id="gateRetryBtn">Retry</button>
             </div>
           </div>
         </div>
@@ -674,6 +681,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function () {
   var TOTAL_WEEKS = 26;
@@ -692,6 +700,9 @@
   // as week-offsets from this Monday, so a resource's real calendar dates never move when the
   // visible timeline window (timelineStartDate) is panned — only what's on screen changes.
   var DATA_EPOCH = new Date(2000, 0, 3);
+  var SUPABASE_URL = 'https://qkkcvbafkderoxlxvjww.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_FzDjgkUIrncKMuyt253GsA_qK2fGKH1';
+  var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   var MIN_LABEL_WIDTH = 160;
   var MAX_LABEL_WIDTH = 480;
   var LABEL_WIDTH = 220;
@@ -706,6 +717,7 @@
   var appEl = document.getElementById('app');
   var grid = document.getElementById('ganttGrid');
   var colResizeHandle = document.getElementById('colResizeHandle');
+  var ganttScroll = document.querySelector('.gantt-scroll');
   var dragTip = document.getElementById('dragTip');
   var addForm = document.getElementById('addForm');
   var projectInput = document.getElementById('projectInput');
@@ -721,8 +733,7 @@
   var cleanupCancelBtn = document.getElementById('cleanupCancelBtn');
   var cleanupOkBtn = document.getElementById('cleanupOkBtn');
   var cleanupList = document.getElementById('cleanupList');
-  var saveAsBtn = document.getElementById('saveAsBtn');
-  var reconnectBtn = document.getElementById('reconnectBtn');
+  var importFileInput = document.getElementById('importFileInput');
   var exportBtn = document.getElementById('exportBtn');
   var exportPngBtn = document.getElementById('exportPngBtn');
   var exportPdfBtn = document.getElementById('exportPdfBtn');
@@ -765,12 +776,9 @@
   var rolesFilterChips = document.getElementById('rolesFilterChips');
   var editableArea = document.getElementById('editableArea');
   var lockOverlay = document.getElementById('lockOverlay');
-  var gateOpenBtn = document.getElementById('gateOpenBtn');
-  var gateCreateBtn = document.getElementById('gateCreateBtn');
-
-  var IDB_NAME = 'gantt-planner-db';
-  var IDB_STORE = 'handles';
-  var IDB_HANDLE_KEY = 'lastFileHandle';
+  var lockOverlayText = document.getElementById('lockOverlayText');
+  var lockOverlayActions = document.getElementById('lockOverlayActions');
+  var gateRetryBtn = document.getElementById('gateRetryBtn');
 
   var resources = [];
   var nextId = 1;
@@ -806,12 +814,6 @@
   try {
     if (localStorage.getItem('gantt-panel-roles-filters-collapsed') === '1') panelRolesFiltersCollapsed = true;
   } catch (err) {}
-
-  var fsApiSupported = !!(window.showOpenFilePicker && window.showSaveFilePicker);
-  var fileHandle = null;
-  var fileName = null;
-  var pendingReconnectHandle = null;
-  var pendingReconnectFileName = null;
 
   // Grid is week-granular: every column is a Monday-Sunday week, and resource
   // start/duration are stored directly in whole weeks (no day-level snapping needed).
@@ -1069,100 +1071,47 @@
     return { version: 3, unit: 'week', timelineStart: isoDateString(timelineStartDate), resources: resources, nextId: nextId, rolesCatalog: rolesCatalog, resourceRoles: resourceRoles };
   }
 
-  function persistState() {
-    if (!fileHandle) {
-      // No live link (unsupported browser, or not yet linked): nothing to autosave to.
-      // The Export/Import buttons are the manual JSON fallback in that case.
-      return;
-    }
-    writeStateToFile(fileHandle, currentStateData()).then(function () {
-      flashStatus('Saved to ' + fileName + ' · ' + timeNow());
+  function persistState(isRetry) {
+    supabaseClient.from('gantt_state').upsert({ id: 1, data: currentStateData(), updated_at: new Date().toISOString() }).then(function (res) {
+      if (res.error) throw res.error;
+      flashStatus('Saved · ' + timeNow());
     }).catch(function () {
-      flashStatus('Lost access to ' + fileName + ' — click Open Data File to relink');
-      fileHandle = null;
-      fileName = null;
-      idbDel(IDB_HANDLE_KEY);
-      updateFileUi();
-      updateLockState();
+      if (isRetry) {
+        flashStatus('Save failed — check your connection');
+        return;
+      }
+      flashStatus('Save failed, retrying…');
+      setTimeout(function () { persistState(true); }, 5000);
     });
   }
 
-  // ---- IndexedDB (remembers the linked file handle across reloads) ----
-  function idbOpen() {
-    return new Promise(function (resolve, reject) {
-      var req = indexedDB.open(IDB_NAME, 1);
-      req.onupgradeneeded = function () { req.result.createObjectStore(IDB_STORE); };
-      req.onsuccess = function () { resolve(req.result); };
-      req.onerror = function () { reject(req.error); };
-    });
-  }
-  function idbSet(key, val) {
-    return idbOpen().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction(IDB_STORE, 'readwrite');
-        tx.objectStore(IDB_STORE).put(val, key);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function () { reject(tx.error); };
-      });
-    });
-  }
-  function idbGet(key) {
-    return idbOpen().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction(IDB_STORE, 'readonly');
-        var req = tx.objectStore(IDB_STORE).get(key);
-        req.onsuccess = function () { resolve(req.result); };
-        req.onerror = function () { reject(req.error); };
-      });
-    });
-  }
-  function idbDel(key) {
-    return idbOpen().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction(IDB_STORE, 'readwrite');
-        tx.objectStore(IDB_STORE).delete(key);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function () { reject(tx.error); };
-      });
-    });
+  // ---- Supabase load + loading/error overlay ----
+  function showLoadOverlay(state) {
+    editableArea.classList.add('locked');
+    lockOverlay.style.display = '';
+    lockOverlayActions.style.display = state === 'error' ? '' : 'none';
+    lockOverlayText.textContent = state === 'error'
+      ? 'Could not reach the database. Check your connection and retry.'
+      : 'Loading schedule…';
   }
 
-  // ---- Linked file (File System Access API) ----
-  function writeStateToFile(handle, data) {
-    return handle.createWritable().then(function (writable) {
-      return writable.write(JSON.stringify(data, null, 2)).then(function () {
-        return writable.close();
-      });
-    });
+  function hideLoadOverlay() {
+    editableArea.classList.remove('locked');
+    lockOverlay.style.display = 'none';
   }
 
-  function loadFromFileHandle(handle) {
-    return handle.getFile().then(function (file) {
-      return file.text();
-    }).then(function (text) {
-      var data = JSON.parse(text);
-      if (!applyState(data)) throw new Error('unrecognized file shape');
-      fileHandle = handle;
-      fileName = handle.name;
+  function loadStateFromSupabase() {
+    render();
+    showLoadOverlay('loading');
+    supabaseClient.from('gantt_state').select('data').eq('id', 1).single().then(function (res) {
+      // PGRST116 = no row yet (fresh table) — treat like today's empty-state.
+      if (res.error && res.error.code !== 'PGRST116') throw res.error;
+      if (res.data && res.data.data) applyState(res.data.data);
+      hideLoadOverlay();
       render();
-      updateFileUi();
-      updateLockState();
-      flashStatus('Linked to ' + fileName);
+    }).catch(function () {
+      showLoadOverlay('error');
     });
-  }
-
-  function updateFileUi() {
-    openFileBtn.style.display = fsApiSupported ? '' : 'none';
-    reconnectBtn.style.display = (fsApiSupported && pendingReconnectHandle) ? '' : 'none';
-    if (pendingReconnectHandle) {
-      reconnectBtn.textContent = 'Reconnect ' + (pendingReconnectFileName || 'file');
-    }
-  }
-
-  function updateLockState() {
-    var locked = fsApiSupported && !fileHandle;
-    editableArea.classList.toggle('locked', locked);
-    lockOverlay.style.display = locked ? '' : 'none';
   }
 
   function applyState(data) {
@@ -1451,6 +1400,15 @@
     }
   }
 
+  // Bounds the chart panel to the remaining viewport height below it, so it scrolls
+  // internally (letting the sticky header rows work) instead of growing the whole page.
+  function updateGanttScrollHeight() {
+    var top = ganttScroll.getBoundingClientRect().top;
+    var available = window.innerHeight - top - 24;
+    appEl.style.setProperty('--gantt-scroll-max-height', Math.max(200, available) + 'px');
+  }
+  window.addEventListener('resize', updateGanttScrollHeight);
+
   function render() {
     viewToggleBtns.forEach(function (btn) {
       btn.classList.toggle('active', btn.dataset.view === viewMode);
@@ -1586,6 +1544,14 @@
     });
 
     grid.innerHTML = html;
+
+    // Keeps the week-row sticky offset in sync with the month row's actual rendered
+    // height, so the two header rows stack correctly without a hardcoded pixel guess.
+    var monthLabelEl = grid.querySelector('.label-cell.month-label');
+    if (monthLabelEl) {
+      appEl.style.setProperty('--header-row1-height', monthLabelEl.getBoundingClientRect().height + 'px');
+    }
+    updateGanttScrollHeight();
 
     var projectListEl = document.getElementById('projectList');
     if (projectListEl) {
@@ -2198,41 +2164,32 @@
     window.addEventListener('pointerup', onUp);
   });
 
-  // ---- Linked file controls ----
-  function handleOpenFile() {
-    window.showOpenFilePicker({
-      types: [{ description: 'Gantt JSON', accept: { 'application/json': ['.json'] } }],
-      multiple: false
-    }).then(function (handles) {
-      return loadFromFileHandle(handles[0]).then(function () {
-        pendingReconnectHandle = null;
-        updateFileUi();
-        return idbSet(IDB_HANDLE_KEY, fileHandle);
-      });
-    }).catch(function (err) {
-      if (err && err.name === 'AbortError') return;
-      flashStatus('Could not open that file as a Gantt data file');
-    });
-  }
-
-  function handleSaveAsNewFile() {
-    window.showSaveFilePicker({
-      suggestedName: fileName || 'gantt-data.json',
-      types: [{ description: 'Gantt JSON', accept: { 'application/json': ['.json'] } }]
-    }).then(function (handle) {
-      return writeStateToFile(handle, currentStateData()).then(function () {
-        fileHandle = handle;
-        fileName = handle.name;
-        pendingReconnectHandle = null;
-        updateFileUi();
-        updateLockState();
-        flashStatus('Linked to ' + fileName + ' — saved');
-        return idbSet(IDB_HANDLE_KEY, fileHandle);
-      });
-    }).catch(function (err) {
-      if (err && err.name === 'AbortError') return;
-      flashStatus('Could not save file');
-    });
+  // ---- Import Backup (manual restore from a local JSON file) ----
+  function handleImportFile() {
+    var file = importFileInput.files[0];
+    importFileInput.value = '';
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try {
+        data = JSON.parse(reader.result);
+      } catch (err) {
+        flashStatus('That file isn\'t a valid Gantt backup');
+        return;
+      }
+      if (!applyState(data)) {
+        flashStatus('That file isn\'t a valid Gantt backup');
+        return;
+      }
+      render();
+      scheduleSave();
+      flashStatus('Imported ' + file.name);
+    };
+    reader.onerror = function () {
+      flashStatus('Could not read that file');
+    };
+    reader.readAsText(file);
   }
 
   viewToggle.addEventListener('click', function (e) {
@@ -2301,28 +2258,9 @@
     scheduleSave();
   });
 
-  openFileBtn.addEventListener('click', handleOpenFile);
-  saveAsBtn.addEventListener('click', handleSaveAsNewFile);
-  gateOpenBtn.addEventListener('click', handleOpenFile);
-  gateCreateBtn.addEventListener('click', handleSaveAsNewFile);
-
-  reconnectBtn.addEventListener('click', function () {
-    var handle = pendingReconnectHandle;
-    if (!handle) return;
-    handle.requestPermission({ mode: 'readwrite' }).then(function (perm) {
-      if (perm !== 'granted') throw new Error('denied');
-      return loadFromFileHandle(handle);
-    }).then(function () {
-      pendingReconnectHandle = null;
-      updateFileUi();
-    }).catch(function () {
-      flashStatus('Could not reconnect — use Open Data File to pick it again');
-      pendingReconnectHandle = null;
-      idbDel(IDB_HANDLE_KEY);
-      updateFileUi();
-      updateLockState();
-    });
-  });
+  openFileBtn.addEventListener('click', function () { importFileInput.click(); });
+  importFileInput.addEventListener('change', handleImportFile);
+  gateRetryBtn.addEventListener('click', loadStateFromSupabase);
 
   // ---- Export ----
   exportBtn.addEventListener('click', function () {
@@ -2578,34 +2516,7 @@
 
   // ---- Init ----
   function init() {
-    if (!fsApiSupported) {
-      render();
-      updateFileUi();
-      updateLockState();
-      flashStatus('This browser can\'t link a data file — use Export JSON to save changes');
-      return;
-    }
-    idbGet(IDB_HANDLE_KEY).then(function (handle) {
-      if (!handle) {
-        render();
-        updateFileUi();
-        updateLockState();
-        return;
-      }
-      return handle.queryPermission({ mode: 'readwrite' }).then(function (perm) {
-        if (perm === 'granted') return loadFromFileHandle(handle).then(updateLockState);
-        pendingReconnectHandle = handle;
-        pendingReconnectFileName = handle.name;
-        render();
-        updateFileUi();
-        updateLockState();
-        flashStatus('Data file disconnected — click Reconnect file to resume');
-      });
-    }).catch(function () {
-      render();
-      updateFileUi();
-      updateLockState();
-    });
+    loadStateFromSupabase();
   }
 
   init();
